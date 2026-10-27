@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>読譜トレーナー</title>
+<meta name="description" content="MIDIピアノをつないで、楽譜に出た音をすばやく弾く読譜練習。苦手な音ほど多く出題します。">
+<link rel="canonical" href="https://sight-reading.habatakijuku.com/">
+<meta property="og:title" content="読譜トレーナー">
+<meta property="og:description" content="MIDIピアノをつないで、楽譜に出た音をすばやく弾く読譜練習。苦手な音ほど多く出題します。">
+<meta property="og:url" content="https://sight-reading.habatakijuku.com/">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cellipse cx='12' cy='23' rx='7' ry='5' fill='%233b5b8c'/%3E%3Crect x='17' y='4' width='3' height='19' fill='%233b5b8c'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
+<style>
+:root {
+  --bg: #f4efe6;
+  --paper: #fffdf8;
+  --ink: #2b2620;
+  --muted: #7a6f62;
+  --line: #e2d9ca;
+  --accent: #3b5b8c;
+  --accent-soft: #e3eaf5;
+  --ok: #2e8b57;
+  --ng: #c8433a;
+  --hint: #d9a21b;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+  line-height: 1.6;
+}
+header {
+  max-width: 960px; margin: 0 auto; padding: 18px 16px 8px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; justify-content: space-between;
+}
+h1 { font-size: 1.5rem; margin: 0; letter-spacing: .05em; }
+.midi-status {
+  font-size: .85rem; padding: 4px 12px; border-radius: 999px;
+  background: #eee6d8; color: var(--muted);
+}
+.midi-status.on { background: #dcefe3; color: var(--ok); }
+.midi-status.off { background: #f6dfdc; color: var(--ng); }
+main { max-width: 960px; margin: 0 auto; padding: 0 16px 32px; display: grid; gap: 16px; }
+main > * { min-width: 0; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+.stage { display: grid; gap: 8px; justify-items: center; }
+#staff { width: 100%; max-width: 560px; min-height: 160px; }
+#staff svg { display: block; width: 100%; height: auto; }
+.feedback { min-height: 2em; font-size: 1.15rem; font-weight: 700; text-align: center; }
+.feedback.ok { color: var(--ok); }
+.feedback.ng { color: var(--ng); }
+.feedback .sub { font-weight: 500; color: var(--muted); font-size: .95rem; }
+.name-hint { min-height: 1.5em; color: var(--hint); font-weight: 700; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+button {
+  font: inherit; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: #fff;
+  border-radius: 10px; padding: 6px 16px;
+}
+button.ghost { background: transparent; color: var(--accent); }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--hint); outline-offset: 2px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; }
+.stat b { display: block; font-size: 1.4rem; }
+.stat span { font-size: .8rem; color: var(--muted); }
+.weak { margin-top: 10px; font-size: .9rem; color: var(--muted); text-align: center; }
+.weak strong { color: var(--ng); }
+.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 20px; }
+.settings h2 { grid-column: 1 / -1; font-size: 1rem; margin: 0; }
+.field { display: grid; gap: 4px; font-size: .9rem; align-content: start; }
+.field > span { color: var(--muted); }
+select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
+.seg { display: flex; border: 1px solid var(--accent); border-radius: 10px; overflow: hidden; }
+.seg button { flex: 1; border: 0; border-radius: 0; background: transparent; color: var(--accent); padding: 4px 8px; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.check { display: flex; gap: 6px; align-items: center; font-size: .9rem; }
+.kb-wrap { overflow-x: auto; padding-bottom: 4px; }
+.kb { position: relative; height: 120px; margin: 0 auto; user-select: none; touch-action: manipulation; }
+.key { position: absolute; top: 0; border: 1px solid #555; border-radius: 0 0 5px 5px; cursor: pointer; }
+.key.white { background: #fff; height: 120px; z-index: 1; }
+.key.black { background: #222; height: 74px; z-index: 2; }
+.key.c-label::after {
+  content: attr(data-label); position: absolute; bottom: 4px; left: 0; right: 0;
+  text-align: center; font-size: 10px; color: #999;
+}
+.key.ok { background: var(--ok) !important; }
+.key.ng { background: var(--ng) !important; }
+.key.hint { background: var(--hint) !important; }
+.kb-note { font-size: .8rem; color: var(--muted); margin-top: 6px; }
+footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 16px 24px; }
+@media (max-width: 560px) {
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  h1 { font-size: 1.25rem; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>読譜トレーナー</h1>
+  <div id="midiStatus" class="midi-status">MIDIを確認中…</div>
+</header>
+
+<main>
+  <section class="card stage" aria-label="出題">
+    <div id="staff" role="img" aria-label="出題された音符"></div>
+    <div id="nameHint" class="name-hint"></div>
+    <div id="feedback" class="feedback" aria-live="polite">楽譜の音を弾いてください</div>
+    <div class="controls">
+      <button id="skipBtn" class="ghost" type="button">答えを見て次へ</button>
+    </div>
+  </section>
+
+  <section class="card" aria-label="成績">
+    <div class="stats">
+      <div class="stat"><b id="stCount">0</b><span>正解した数</span></div>
+      <div class="stat"><b id="stAcc">–</b><span>一発正解率</span></div>
+      <div class="stat"><b id="stTime">–</b><span>平均反応時間</span></div>
+      <div class="stat"><b id="stStreak">0</b><span>連続一発正解</span></div>
+    </div>
+    <div id="weak" class="weak"></div>
+  </section>
+
+  <section class="card settings" aria-label="設定">
+    <h2>設定</h2>
+    <div class="field">
+      <span>音部記号</span>
+      <div class="seg" id="clefSeg">
+        <button type="button" data-v="treble">ト音</button>
+        <button type="button" data-v="bass">ヘ音</button>
+        <button type="button" data-v="grand">大譜表</button>
+      </div>
+    </div>
+    <label class="field">
+      <span>音域</span>
+      <select id="rangeSel">
+        <option value="1">譜表の中だけ</option>
+        <option value="3">加線1本まで</option>
+        <option value="5">加線2本まで</option>
+        <option value="7">加線3本まで</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>音名の表記</span>
+      <select id="namingSel">
+        <option value="ja">ドレミ</option>
+        <option value="en">CDE</option>
+      </select>
+    </label>
+    <div class="field">
+      <span>出題</span>
+      <label class="check"><input type="checkbox" id="accChk">♯・♭も出す</label>
+      <label class="check"><input type="checkbox" id="octChk">オクターブ違いも正解にする</label>
+      <label class="check"><input type="checkbox" id="hintChk">はじめから音名を見せる</label>
+    </div>
+    <div class="field">
+      <span>記録</span>
+      <button id="resetBtn" class="ghost" type="button">苦手の記録を消す</button>
+    </div>
+  </section>
+
+  <section class="card" aria-label="画面の鍵盤">
+    <div class="kb-wrap"><div id="kb" class="kb"></div></div>
+    <div class="kb-note">MIDIがないときは、画面の鍵盤をクリックするか、PCのキー（A W S E D F T G Y H U J K＝ド〜ド、Z / X でオクターブを下げる / 上げる）で弾けます。</div>
+  </section>
+</main>
+
+<footer>MIDI入力は Chrome / Edge で使えます（Safari は非対応）。</footer>
+
+<script>
+'use strict';
+const VF = Vex.Flow;
+
+// ---- 音の表し方 ----
+// step = オクターブ*7 + 音名番号（C4 = 28）。acc は -1/0/+1
+const LETTERS = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
+const LETTER_PC = [0, 2, 4, 5, 7, 9, 11];
+const NAMES = {
+  ja: ['ド', 'レ', 'ミ', 'ファ', 'ソ', 'ラ', 'シ'],
+  en: ['C', 'D', 'E', 'F', 'G', 'A', 'B'],
+};
+const CLEF_BOTTOM = { treble: 30, bass: 18 }; // 第1線: E4 / G2
+const SHARP_SPELL = [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0], [3, 0], [3, 1], [4, 0], [4, 1], [5, 0], [5, 1], [6, 0]];
+const FLAT_SPELL = [[0, 0], [1, -1], [1, 0], [2, -1], [2, 0], [3, 0], [4, -1], [4, 0], [5, -1], [5, 0], [6, -1], [6, 0]];
+
+const stepToMidi = (step, acc) => (Math.floor(step / 7) + 1) * 12 + LETTER_PC[step % 7] + acc;
+
+const midiToSpelling = (midi, preferFlat) => {
+  const [li, acc] = (preferFlat ? FLAT_SPELL : SHARP_SPELL)[midi % 12];
+  return { step: (Math.floor(midi / 12) - 1) * 7 + li, acc };
+};
+
+const noteLabel = (step, acc, naming) => {
+  const name = NAMES[naming][step % 7] + (acc === 1 ? '♯' : acc === -1 ? '♭' : '');
+  const sci = NAMES.en[step % 7] + (acc === 1 ? '♯' : acc === -1 ? '♭' : '') + Math.floor(step / 7);
+  return naming === 'en' ? sci : `${name}（${sci}）`;
+};
+
+const vfKey = (step, acc) => `${LETTERS[step % 7]}${acc === 1 ? '#' : acc === -1 ? 'b' : ''}/${Math.floor(step / 7)}`;
+
+// ---- 保存 ----
+const STORE_KEY = 'sightReading_v1';
+const loadStore = () => {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    console.warn('記録を読み込めませんでした', e);
+    return {};
+  }
+};
+const saveStore = (data) => {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.warn('記録を保存できませんでした', e);
+  }
+};
+
+const stored = loadStore();
+const settings = Object.assign(
+  { clef: 'treble', ext: 3, naming: 'ja', acc: false, oct: false, hint: false },
+  stored.settings || {}
+);
+let noteStats = stored.noteStats || {}; // id -> { n, miss, time }
+const persist = () => saveStore({ settings, noteStats });
+
+// ---- 出題 ----
+const noteId = (q) => `${q.clef}|${q.step}|${q.acc}`;
+
+const buildCandidates = () => {
+  const clefs = settings.clef === 'grand' ? ['treble', 'bass'] : [settings.clef];
+  const accs = settings.acc ? [0, 1, -1] : [0];
+  return clefs.flatMap((clef) => {
+    const bottom = CLEF_BOTTOM[clef];
+    const steps = [];
+    for (let s = bottom - settings.ext; s <= bottom + 8 + settings.ext; s++) steps.push(s);
+    return steps.flatMap((step) =>
+      accs
+        // E♯・B♯・F♭・C♭ は出さない
+        .filter((acc) => !(acc === 1 && (step % 7 === 2 || step % 7 === 6)) && !(acc === -1 && (step % 7 === 3 || step % 7 === 0)))
+        .map((acc) => ({ clef, step, acc }))
+    );
+  });
+};
+
+// 間違えた音・遅い音ほど重くする
+const weightOf = (q) => {
+  const st = noteStats[noteId(q)];
+  const base = q.acc === 0 ? 1 : 0.4;
+  if (!st || st.n === 0) return base * 1.5;
+  const missRate = (st.miss + 0.5) / (st.n + 1);
+  const avgSec = st.time / Math.max(1, st.n - st.miss) / 1000;
+  return base * (1 + missRate * 6 + Math.min(Math.max(avgSec - 1, 0), 3));
+};
+
+const pickNext = (prev) => {
+  const cands = buildCandidates().filter((q) => !prev || noteId(q) !== noteId(prev));
+  const weights = cands.map(weightOf);
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < cands.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return cands[i];
+  }
+  return cands[cands.length - 1];
+};
+
+// ---- 状態 ----
+let current = null;   // { clef, step, acc }
+let played = null;    // 間違えた音 { clef, step, acc }
+let state = 'ask';    // ask | done
+let shownAt = 0;
+let misses = 0;
+const session = { correct: 0, firstTry: 0, asked: 0, time: 0, streak: 0 };
+
+// ---- 譜面の描画 ----
+const W = 300;
+const $ = (id) => document.getElementById(id);
+
+const render = (colorQ) => {
+  const el = $('staff');
+  el.innerHTML = '';
+  const grand = settings.clef === 'grand';
+  const reach = (settings.ext + 1) * 5 + 10; // 加線の音が譜表からはみ出す高さ
+  const firstLine = reach + 4;
+  const renderer = new VF.Renderer(el, VF.Renderer.Backends.SVG);
+  const H = grand ? firstLine + 40 + reach * 2 + 50 + reach + 6 : firstLine + 40 + reach + 6;
+  renderer.resize(W, H);
+  const ctx = renderer.getContext();
+  const x = grand ? 28 : 10;
+  const staves = {};
+  if (grand) {
+    staves.treble = new VF.Stave(x, firstLine - 40, W - x - 10).addClef('treble');
+    const bassFirst = firstLine + 40 + reach * 2 + 10;
+    staves.bass = new VF.Stave(x, bassFirst - 40, W - x - 10).addClef('bass');
+  } else {
+    staves[settings.clef] = new VF.Stave(x, firstLine - 40, W - x - 10).addClef(settings.clef);
+  }
+  Object.values(staves).forEach((s) => s.setContext(ctx).draw());
+  if (grand) {
+    new VF.StaveConnector(staves.treble, staves.bass).setType('brace').setContext(ctx).draw();
+    new VF.StaveConnector(staves.treble, staves.bass).setType('singleLeft').setContext(ctx).draw();
+  }
+  if (!current) return;
+
+  const slots = [{ ...current, color: colorQ }];
+  if (played) slots.push({ ...played, color: getComputedStyle(document.documentElement).getPropertyValue('--ng').trim() });
+
+  const makeNote = (q) => {
+    const n = new VF.StaveNote({ keys: [vfKey(q.step, q.acc)], duration: 'w', clef: q.clef });
+    if (q.acc) {
+      const a = new VF.Accidental(q.acc === 1 ? '#' : 'b');
+      if (q.color) a.setStyle({ fillStyle: q.color, strokeStyle: q.color });
+      n.addModifier(a, 0);
+    }
+    if (q.color) {
+      n.setStyle({ fillStyle: q.color, strokeStyle: q.color });
+      n.setLedgerLineStyle({ fillStyle: q.color, strokeStyle: q.color });
+    }
+    return n;
+  };
+
+  const center = x + (W - x - 10) / 2 + 10;
+  const spread = slots.length === 1 ? 0 : 90;
+  const voices = Object.entries(staves).map(([clef, stave]) => {
+    stave.setNoteStartX(center - spread / 2 - 10);
+    const ticks = slots.map((q) => (q.clef === clef ? makeNote(q) : new VF.GhostNote({ duration: 'w' })));
+    const voice = new VF.Voice({ num_beats: 4 * slots.length, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
+    voice.addTickables(ticks);
+    return { voice, stave };
+  });
+  const fmt = new VF.Formatter();
+  voices.forEach(({ voice }) => fmt.joinVoices([voice]));
+  fmt.format(voices.map((v) => v.voice), spread + 1);
+  voices.forEach(({ voice, stave }) => voice.draw(ctx, stave));
+
+  const svg = el.querySelector('svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.removeAttribute('width');
+  svg.removeAttribute('height');
+  svg.style.width = '100%';
+  svg.style.height = 'auto';
+};
+
+// ---- 画面の鍵盤 ----
+const isBlack = (pc) => [1, 3, 6, 8, 10].includes(pc);
+let kbRange = [48, 84];
+
+const buildKeyboard = () => {
+  const midis = buildCandidates().map((q) => stepToMidi(q.step, q.acc));
+  const lo = Math.floor(Math.min(...midis) / 12) * 12;
+  const hi = Math.ceil((Math.max(...midis) + 1) / 12) * 12;
+  kbRange = [lo, hi];
+  const kb = $('kb');
+  kb.innerHTML = '';
+  const whiteW = 26;
+  let wi = 0;
+  for (let m = lo; m <= hi; m++) {
+    const key = document.createElement('div');
+    key.dataset.midi = m;
+    if (isBlack(m % 12)) {
+      key.className = 'key black';
+      key.style.left = `${wi * whiteW - 8}px`;
+      key.style.width = '16px';
+    } else {
+      key.className = 'key white' + (m % 12 === 0 ? ' c-label' : '');
+      key.dataset.label = `C${Math.floor(m / 12) - 1}`;
+      key.style.left = `${wi * whiteW}px`;
+      key.style.width = `${whiteW}px`;
+      wi++;
+    }
+    key.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      beep(m);
+      handleNote(m);
+    });
+    kb.appendChild(key);
+  }
+  kb.style.width = `${wi * whiteW}px`;
+};
+
+const flashKey = (midi, cls, ms = 350) => {
+  const key = document.querySelector(`.key[data-midi="${midi}"]`);
+  if (!key) return;
+  key.classList.add(cls);
+  if (ms) setTimeout(() => key.classList.remove(cls), ms);
+};
+const clearHints = () => document.querySelectorAll('.key.hint').forEach((k) => k.classList.remove('hint'));
+
+// ---- 音（画面の鍵盤・PCキー用）----
+let audioCtx = null;
+const beep = (midi) => {
+  try {
+    audioCtx = audioCtx || new AudioContext();
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = 440 * 2 ** ((midi - 69) / 12);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.25, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.85);
+  } catch (e) {
+    console.warn('音を鳴らせませんでした', e);
+  }
+};
+
+// ---- 進行 ----
+const showName = (text) => { $('nameHint').textContent = text; };
+const setFeedback = (cls, html) => {
+  const fb = $('feedback');
+  fb.className = 'feedback' + (cls ? ' ' + cls : '');
+  fb.innerHTML = html;
+};
+
+const nextQuestion = () => {
+  current = pickNext(current);
+  played = null;
+  misses = 0;
+  state = 'ask';
+  session.asked++;
+  clearHints();
+  render();
+  showName(settings.hint ? noteLabel(current.step, current.acc, settings.naming) : '');
+  shownAt = performance.now();
+};
+
+const record = (q, ok, ms) => {
+  const id = noteId(q);
+  const st = noteStats[id] || { n: 0, miss: 0, time: 0 };
+  st.n++;
+  if (!ok) st.miss++;
+  else st.time += ms;
+  noteStats[id] = st;
+  persist();
+};
+
+const matches = (midi) => {
+  const target = stepToMidi(current.step, current.acc);
+  return settings.oct ? (midi - target) % 12 === 0 : midi === target;
+};
+
+const handleNote = (midi) => {
+  if (!current || state !== 'ask') return;
+  if (matches(midi)) {
+    const ms = performance.now() - shownAt;
+    state = 'done';
+    session.correct++;
+    if (misses === 0) {
+      session.firstTry++;
+      session.time += ms;
+      session.streak++;
+      record(current, true, ms);
+    } else {
+      session.streak = 0;
+    }
+    flashKey(midi, 'ok');
+    render(getComputedStyle(document.documentElement).getPropertyValue('--ok').trim());
+    setFeedback('ok', `○ ${noteLabel(current.step, current.acc, settings.naming)} <span class="sub">${(ms / 1000).toFixed(2)}秒</span>`);
+    updateStats();
+    setTimeout(nextQuestion, misses === 0 ? 450 : 900);
+    return;
+  }
+  if (misses === 0) record(current, false, 0);
+  misses++;
+  session.streak = 0;
+  const sp = midiToSpelling(midi, current.acc === -1);
+  played = { clef: settings.clef === 'grand' ? (midi >= 60 ? 'treble' : 'bass') : current.clef, ...sp };
+  flashKey(midi, 'ng');
+  render();
+  setFeedback('ng', `× 弾いた音は ${noteLabel(sp.step, sp.acc, settings.naming)}`);
+  if (misses >= 2) {
+    showName(noteLabel(current.step, current.acc, settings.naming));
+    flashKey(stepToMidi(current.step, current.acc), 'hint', 0);
+  }
+  updateStats();
+};
+
+const skip = () => {
+  if (!current || state !== 'ask') return;
+  if (misses === 0) record(current, false, 0);
+  session.streak = 0;
+  state = 'done';
+  const target = stepToMidi(current.step, current.acc);
+  flashKey(target, 'hint', 900);
+  setFeedback('', `答えは ${noteLabel(current.step, current.acc, settings.naming)}`);
+  render(getComputedStyle(document.documentElement).getPropertyValue('--hint').trim());
+  updateStats();
+  setTimeout(nextQuestion, 1200);
+};
+
+const updateStats = () => {
+  $('stCount').textContent = session.correct;
+  const answered = session.asked - (state === 'ask' && misses === 0 ? 1 : 0);
+  $('stAcc').textContent = answered > 0 ? `${Math.round((session.firstTry / answered) * 100)}%` : '–';
+  $('stTime').textContent = session.firstTry ? `${(session.time / session.firstTry / 1000).toFixed(2)}秒` : '–';
+  $('stStreak').textContent = session.streak;
+
+  const ids = new Set(buildCandidates().map(noteId));
+  const weak = Object.entries(noteStats)
+    .filter(([id, st]) => ids.has(id) && st.n >= 2 && st.miss > 0)
+    .map(([id, st]) => ({ id, rate: st.miss / st.n }))
+    .sort((a, b) => b.rate - a.rate)
+    .slice(0, 5);
+  $('weak').innerHTML = weak.length
+    ? '苦手な音: ' + weak.map(({ id, rate }) => {
+        const [clef, step, acc] = id.split('|');
+        const clefName = settings.clef === 'grand' ? (clef === 'treble' ? 'ト音' : 'ヘ音') + ' ' : '';
+        return `<strong>${clefName}${noteLabel(+step, +acc, settings.naming)}</strong>（${Math.round(rate * 100)}%ミス）`;
+      }).join('、')
+    : '';
+};
+
+// ---- 設定UI ----
+const syncSettingsUI = () => {
+  document.querySelectorAll('#clefSeg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === settings.clef)));
+  $('rangeSel').value = String(settings.ext);
+  $('namingSel').value = settings.naming;
+  $('accChk').checked = settings.acc;
+  $('octChk').checked = settings.oct;
+  $('hintChk').checked = settings.hint;
+};
+
+const onSettingsChanged = () => {
+  persist();
+  syncSettingsUI();
+  buildKeyboard();
+  current = null;
+  session.asked = Math.max(0, session.asked - 1);
+  setFeedback('', '楽譜の音を弾いてください');
+  nextQuestion();
+  updateStats();
+};
+
+document.querySelectorAll('#clefSeg button').forEach((b) =>
+  b.addEventListener('click', () => { settings.clef = b.dataset.v; onSettingsChanged(); })
+);
+$('rangeSel').addEventListener('change', (e) => { settings.ext = Number(e.target.value); onSettingsChanged(); });
+$('namingSel').addEventListener('change', (e) => { settings.naming = e.target.value; persist(); updateStats(); if (settings.hint && current) showName(noteLabel(current.step, current.acc, settings.naming)); });
+$('accChk').addEventListener('change', (e) => { settings.acc = e.target.checked; onSettingsChanged(); });
+$('octChk').addEventListener('change', (e) => { settings.oct = e.target.checked; persist(); });
+$('hintChk').addEventListener('change', (e) => {
+  settings.hint = e.target.checked;
+  persist();
+  if (current) showName(settings.hint ? noteLabel(current.step, current.acc, settings.naming) : '');
+});
+$('skipBtn').addEventListener('click', skip);
+$('resetBtn').addEventListener('click', () => {
+  if (!confirm('苦手な音の記録を消しますか？')) return;
+  noteStats = {};
+  persist();
+  updateStats();
+});
+
+// ---- PCキーボード ----
+const PC_KEYS = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12 };
+let pcOctave = 60;
+document.addEventListener('keydown', (e) => {
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z') { pcOctave = Math.max(kbRange[0], pcOctave - 12); return; }
+  if (k === 'x') { pcOctave = Math.min(kbRange[1] - 12, pcOctave + 12); return; }
+  if (k in PC_KEYS) {
+    const m = pcOctave + PC_KEYS[k];
+    beep(m);
+    handleNote(m);
+  }
+});
+
+// ---- MIDI ----
+const setMidiStatus = (cls, text) => {
+  const el = $('midiStatus');
+  el.className = 'midi-status' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+};
+
+const onMidiMessage = (e) => {
+  const [status, note, vel] = e.data;
+  if ((status & 0xf0) === 0x90 && vel > 0) handleNote(note);
+};
+
+const initMidi = async () => {
+  if (!navigator.requestMIDIAccess) {
+    setMidiStatus('off', 'このブラウザはMIDIに対応していません');
+    return;
+  }
+  try {
+    const access = await navigator.requestMIDIAccess();
+    const update = () => {
+      const inputs = [...access.inputs.values()];
+      inputs.forEach((i) => { i.onmidimessage = onMidiMessage; });
+      if (inputs.length) setMidiStatus('on', `接続中: ${inputs.map((i) => i.name).join('、')}`);
+      else setMidiStatus('off', 'MIDI機器が見つかりません（つなぐと自動で認識します）');
+    };
+    access.onstatechange = update;
+    update();
+  } catch (e) {
+    setMidiStatus('off', `MIDIを使えません: ${e.message}`);
+  }
+};
+
+// ---- 開始 ----
+syncSettingsUI();
+buildKeyboard();
+nextQuestion();
+updateStats();
+initMidi();
+window.addEventListener('resize', () => render());
+</script>
+</body>
+</html>
