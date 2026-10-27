@@ -601,7 +601,9 @@ const initMidi = async () => {
     access.onstatechange = update;
     update();
   } catch (e) {
-    setMidiStatus('off', `MIDIを使えません: ${e.message}`);
+    setMidiStatus('off', e.name === 'NotAllowedError'
+      ? 'MIDIが許可されていません。アドレスバー左のアイコン →「サイトの設定」→「MIDI デバイス」を「許可」にして再読み込みしてください'
+      : `MIDIを使えません: ${e.message}`);
   }
 };
 
