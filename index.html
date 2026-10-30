@@ -128,7 +128,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
   <section class="card stage" aria-label="出題">
     <div id="staff" role="img" aria-label="出題された音符"></div>
     <div class="kb-wrap" aria-label="画面の鍵盤"><div id="kb" class="kb"></div></div>
-    <div id="kbNav" class="kb-nav" role="scrollbar" aria-controls="kb" aria-label="鍵盤の全体図（ドラッグで鍵盤を左右に動かす）" hidden>
+    <div id="kbNav" class="kb-nav" role="scrollbar" aria-controls="kb" aria-label="鍵盤の全体図（ドラッグで左右に動かす）" hidden>
       <div id="kbNavKeys"></div>
       <div id="kbNavShadeL" class="kb-nav-shade" style="left:0"></div>
       <div id="kbNavShadeR" class="kb-nav-shade" style="right:0"></div>
@@ -176,6 +176,13 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
       <select id="namingSel">
         <option value="ja">ドレミ</option>
         <option value="en">CDE</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>鍵盤の動かし方（全体図）</span>
+      <select id="navSel">
+        <option value="keys">鍵盤をつかんで動かす</option>
+        <option value="frame">枠をつかんで動かす</option>
       </select>
     </label>
     <div class="field">
@@ -246,7 +253,7 @@ const saveStore = (data) => {
 
 const stored = loadStore();
 const settings = Object.assign(
-  { clef: 'treble', ext: 3, naming: 'ja', acc: false, oct: false, hint: false },
+  { clef: 'treble', ext: 3, naming: 'ja', acc: false, oct: false, hint: false, nav: 'keys' },
   stored.settings || {}
 );
 let noteStats = stored.noteStats || {}; // id -> { n, miss, time }
@@ -429,14 +436,15 @@ const setKbScroll = (ratio) => {
   const wrap = $('kb').parentElement;
   $('kbNav').hidden = over === 0;
   if (!over) return;
-  // 枠は真ん中に固定し、縮小した鍵盤のほうを左右にずらす
   const navW = $('kbNav').clientWidth;
   const winW = (wrap.clientWidth / wrap.scrollWidth) * navW;
-  const side = (navW - winW) / 2;
-  Object.assign($('kbNavWin').style, { left: `${side}px`, width: `${winW}px` });
-  $('kbNavShadeL').style.width = `${side}px`;
-  $('kbNavShadeR').style.width = `${side}px`;
-  $('kbNavKeys').style.transform = `translateX(${side - (wrap.scrollLeft / wrap.scrollWidth) * navW}px)`;
+  const viewL = (wrap.scrollLeft / wrap.scrollWidth) * navW;
+  // keys: 枠は真ん中に固定し、縮小した鍵盤のほうをずらす / frame: 鍵盤は固定し、枠が動く
+  const winL = settings.nav === 'frame' ? viewL : (navW - winW) / 2;
+  Object.assign($('kbNavWin').style, { left: `${winL}px`, width: `${winW}px` });
+  $('kbNavShadeL').style.width = `${winL}px`;
+  $('kbNavShadeR').style.width = `${navW - winL - winW}px`;
+  $('kbNavKeys').style.transform = `translateX(${winL - viewL}px)`;
 };
 const syncKbScroll = () => {
   const over = kbOverflow();
@@ -632,6 +640,7 @@ const syncSettingsUI = () => {
   $('accChk').checked = settings.acc;
   $('octChk').checked = settings.oct;
   $('hintChk').checked = settings.hint;
+  $('navSel').value = settings.nav;
 };
 
 const onSettingsChanged = () => {
@@ -652,6 +661,7 @@ $('rangeSel').addEventListener('change', (e) => { settings.ext = Number(e.target
 $('namingSel').addEventListener('change', (e) => { settings.naming = e.target.value; persist(); updateStats(); if (settings.hint && current) showName(noteLabel(current.step, current.acc, settings.naming)); });
 $('accChk').addEventListener('change', (e) => { settings.acc = e.target.checked; onSettingsChanged(); });
 $('octChk').addEventListener('change', (e) => { settings.oct = e.target.checked; persist(); });
+$('navSel').addEventListener('change', (e) => { settings.nav = e.target.value; persist(); syncKbScroll(); });
 $('hintChk').addEventListener('change', (e) => {
   settings.hint = e.target.checked;
   persist();
@@ -724,12 +734,21 @@ initMidi();
 let navDrag = null; // { x: つかんだ位置, scroll: そのときの scrollLeft }
 const navMove = (e) => {
   const wrap = $('kb').parentElement;
-  // 指と同じ向きに鍵盤が動く
-  const scroll = navDrag.scroll - (e.clientX - navDrag.x) * (wrap.scrollWidth / $('kbNav').clientWidth);
+  // keys: 指と同じ向きに鍵盤が動く / frame: 指と同じ向きに枠が動く（鍵盤は逆向き）
+  const dir = settings.nav === 'frame' ? -1 : 1;
+  const scroll = navDrag.scroll - dir * (e.clientX - navDrag.x) * (wrap.scrollWidth / $('kbNav').clientWidth);
   setKbScroll(scroll / kbOverflow());
 };
 $('kbNav').addEventListener('pointerdown', (e) => {
-  navDrag = { x: e.clientX, scroll: $('kb').parentElement.scrollLeft };
+  const wrap = $('kb').parentElement;
+  const rect = $('kbNav').getBoundingClientRect();
+  const winRect = $('kbNavWin').getBoundingClientRect();
+  // 枠モードで枠の外を押したら、そこへ枠の中心を移してからつかむ
+  if (settings.nav === 'frame' && (e.clientX < winRect.left || e.clientX > winRect.right)) {
+    const center = ((e.clientX - rect.left) / rect.width) * wrap.scrollWidth;
+    setKbScroll((center - wrap.clientWidth / 2) / kbOverflow());
+  }
+  navDrag = { x: e.clientX, scroll: wrap.scrollLeft };
   $('kbNav').setPointerCapture(e.pointerId);
   $('kbNav').classList.add('dragging');
   navMove(e);
