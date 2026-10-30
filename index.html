@@ -391,21 +391,56 @@ const flashKey = (midi, cls, ms = 350) => {
 const clearHints = () => document.querySelectorAll('.key.hint').forEach((k) => k.classList.remove('hint'));
 
 // ---- 音（画面の鍵盤・PCキー用）----
-let audioCtx = null;
+let audio = null; // { ctx, out, wave }
+const getAudio = () => {
+  if (audio) return audio;
+  // iPhone のマナーモードでも鳴らす（Safari 16.4+）
+  if (navigator.audioSession) navigator.audioSession.type = 'playback';
+  const ctx = new AudioContext();
+  const out = ctx.createDynamicsCompressor();
+  out.connect(ctx.destination);
+  // ピアノ風：倍音を少しずつ弱めた波形
+  const amps = [0, 1, 0.55, 0.3, 0.18, 0.1, 0.06, 0.03];
+  const wave = ctx.createPeriodicWave(new Float32Array(amps.length), Float32Array.from(amps));
+  audio = { ctx, out, wave };
+  return audio;
+};
+
+// Safari は pointerdown だけでは音声を有効にしないことがあるので、最初の操作で解放しておく
+const unlockAudio = () => {
+  try {
+    const { ctx } = getAudio();
+    if (ctx.state === 'suspended') ctx.resume();
+  } catch (e) {
+    console.warn('音声を有効にできませんでした', e);
+  }
+};
+['touchstart', 'touchend', 'mousedown', 'keydown'].forEach((type) =>
+  document.addEventListener(type, unlockAudio, { once: true, capture: true })
+);
+
 const beep = (midi) => {
   try {
-    audioCtx = audioCtx || new AudioContext();
-    const t = audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.value = 440 * 2 ** ((midi - 69) / 12);
+    const { ctx, out, wave } = getAudio();
+    if (ctx.state === 'suspended') ctx.resume();
+    const t = ctx.currentTime;
+    const freq = 440 * 2 ** ((midi - 69) / 12);
+    const len = Math.min(2.5, Math.max(0.8, 2.5 - (midi - 48) / 30)); // 低い音ほど長く響く
+    const osc = ctx.createOscillator();
+    osc.setPeriodicWave(wave);
+    osc.frequency.value = freq;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(Math.min(freq * 8, 12000), t);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(freq * 1.5, 300), t + len);
+    const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(0.25, t + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
-    osc.connect(gain).connect(audioCtx.destination);
+    gain.gain.exponentialRampToValueAtTime(0.6, t + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.2, t + 0.15);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    osc.connect(filter).connect(gain).connect(out);
     osc.start(t);
-    osc.stop(t + 0.85);
+    osc.stop(t + len + 0.05);
   } catch (e) {
     console.warn('音を鳴らせませんでした', e);
   }
