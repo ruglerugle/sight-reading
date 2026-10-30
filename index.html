@@ -89,6 +89,7 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 }
 .kb-nav[hidden] { display: none; }
 .kb-nav.dragging { cursor: grabbing; }
+#kbNavKeys { position: absolute; inset: 0; will-change: transform; }
 .kb-nav-key { position: absolute; top: 0; }
 .kb-nav-key.white { bottom: 0; border-right: 1px solid #ccc; }
 .kb-nav-key.black { height: 60%; background: #444; }
@@ -127,7 +128,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
   <section class="card stage" aria-label="出題">
     <div id="staff" role="img" aria-label="出題された音符"></div>
     <div class="kb-wrap" aria-label="画面の鍵盤"><div id="kb" class="kb"></div></div>
-    <div id="kbNav" class="kb-nav" role="scrollbar" aria-controls="kb" aria-label="鍵盤の表示位置（ドラッグで左右に動かす）" hidden>
+    <div id="kbNav" class="kb-nav" role="scrollbar" aria-controls="kb" aria-label="鍵盤の全体図（ドラッグで鍵盤を左右に動かす）" hidden>
       <div id="kbNavKeys"></div>
       <div id="kbNavShadeL" class="kb-nav-shade" style="left:0"></div>
       <div id="kbNavShadeR" class="kb-nav-shade" style="right:0"></div>
@@ -416,7 +417,7 @@ const buildKeyboard = () => {
   setKbScroll(0.5);
 };
 
-// 鍵盤は指で動かさず、下の全体図の枠をドラッグして左右に動かす（スワイプで打鍵してしまうのを防ぐ）
+// 鍵盤は指で動かさず、下の全体図をドラッグして左右に動かす（スワイプで打鍵してしまうのを防ぐ）
 const kbOverflow = () => {
   const wrap = $('kb').parentElement;
   return Math.max(0, wrap.scrollWidth - wrap.clientWidth);
@@ -428,11 +429,14 @@ const setKbScroll = (ratio) => {
   const wrap = $('kb').parentElement;
   $('kbNav').hidden = over === 0;
   if (!over) return;
-  const winL = (wrap.scrollLeft / wrap.scrollWidth) * 100;
-  const winW = (wrap.clientWidth / wrap.scrollWidth) * 100;
-  Object.assign($('kbNavWin').style, { left: `${winL}%`, width: `${winW}%` });
-  $('kbNavShadeL').style.width = `${winL}%`;
-  $('kbNavShadeR').style.width = `${100 - winL - winW}%`;
+  // 枠は真ん中に固定し、縮小した鍵盤のほうを左右にずらす
+  const navW = $('kbNav').clientWidth;
+  const winW = (wrap.clientWidth / wrap.scrollWidth) * navW;
+  const side = (navW - winW) / 2;
+  Object.assign($('kbNavWin').style, { left: `${side}px`, width: `${winW}px` });
+  $('kbNavShadeL').style.width = `${side}px`;
+  $('kbNavShadeR').style.width = `${side}px`;
+  $('kbNavKeys').style.transform = `translateX(${side - (wrap.scrollLeft / wrap.scrollWidth) * navW}px)`;
 };
 const syncKbScroll = () => {
   const over = kbOverflow();
@@ -717,23 +721,15 @@ buildKeyboard();
 nextQuestion();
 updateStats();
 initMidi();
-let navDrag = null; // 枠のどこをつかんだか（全体図の幅に対する割合）
-const navPos = (e) => {
-  const rect = $('kbNav').getBoundingClientRect();
-  return (e.clientX - rect.left) / rect.width;
-};
+let navDrag = null; // { x: つかんだ位置, scroll: そのときの scrollLeft }
 const navMove = (e) => {
   const wrap = $('kb').parentElement;
-  const winW = wrap.clientWidth / wrap.scrollWidth;
-  setKbScroll((navPos(e) - navDrag) / (1 - winW));
+  // 指と同じ向きに鍵盤が動く
+  const scroll = navDrag.scroll - (e.clientX - navDrag.x) * (wrap.scrollWidth / $('kbNav').clientWidth);
+  setKbScroll(scroll / kbOverflow());
 };
 $('kbNav').addEventListener('pointerdown', (e) => {
-  const wrap = $('kb').parentElement;
-  const x = navPos(e);
-  const winL = wrap.scrollLeft / wrap.scrollWidth;
-  const winW = wrap.clientWidth / wrap.scrollWidth;
-  // 枠の中をつかんだらその位置のまま、外を押したらそこへ枠の中心を移す
-  navDrag = x >= winL && x <= winL + winW ? x - winL : winW / 2;
+  navDrag = { x: e.clientX, scroll: $('kb').parentElement.scrollLeft };
   $('kbNav').setPointerCapture(e.pointerId);
   $('kbNav').classList.add('dragging');
   navMove(e);
