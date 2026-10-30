@@ -110,6 +110,20 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 .key.ok { background: var(--ok) !important; }
 .key.ng { background: var(--ng) !important; }
 .key.hint { background: var(--hint) !important; }
+.stage-bar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.stage-bar button { padding: 3px 12px; font-size: .9rem; background: transparent; color: var(--accent); }
+.stage-bar button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.stage-bar button:disabled { border-color: var(--line); color: var(--muted); cursor: not-allowed; }
+.stage-info { font-size: .9rem; color: var(--muted); text-align: center; }
+.stage-info b { color: var(--ink); }
+.result { display: grid; gap: 6px; justify-items: center; text-align: center; padding: 12px 0 4px; }
+.result[hidden], #staff[hidden] { display: none; }
+.result h2 { margin: 0; font-size: 1.5rem; }
+.result.clear h2 { color: var(--ok); }
+.result.fail h2 { color: var(--ng); }
+.result p { margin: 0; }
+.result .pass { color: var(--ok); font-weight: 700; }
+.result .miss { color: var(--ng); font-weight: 700; }
 .kb-note { font-size: .8rem; color: var(--muted); text-align: center; }
 footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 16px 24px; }
 @media (max-width: 560px) {
@@ -126,6 +140,9 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 
 <main>
   <section class="card stage" aria-label="出題">
+    <div id="stageBar" class="stage-bar" role="group" aria-label="ステージ"></div>
+    <div id="stageInfo" class="stage-info" aria-live="polite"></div>
+    <div id="result" class="result" aria-live="polite" hidden></div>
     <div id="staff" role="img" aria-label="出題された音符"></div>
     <div class="kb-wrap" aria-label="画面の鍵盤"><div id="kb" class="kb"></div></div>
     <div id="kbNav" class="kb-nav" role="scrollbar" aria-controls="kb" aria-label="鍵盤の全体図（ドラッグで左右に動かす）" hidden>
@@ -135,7 +152,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
       <div id="kbNavWin" class="kb-nav-win"></div>
     </div>
     <div id="nameHint" class="name-hint"></div>
-    <div id="feedback" class="feedback" aria-live="polite">楽譜の音を弾いてください</div>
+    <div id="feedback" class="feedback" aria-live="polite"></div>
     <div class="controls">
       <button id="skipBtn" class="ghost" type="button">答えを見て次へ</button>
     </div>
@@ -257,7 +274,22 @@ const settings = Object.assign(
   stored.settings || {}
 );
 let noteStats = stored.noteStats || {}; // id -> { n, miss, time }
-const persist = () => saveStore({ settings, noteStats });
+// mode: ステージ番号（1〜4）か 'free'。cleared: クリアした一番上のステージ
+const progress = Object.assign({ mode: 1, cleared: 0 }, stored.progress || {});
+const persist = () => saveStore({ settings, noteStats, progress });
+
+// ---- ステージ ----
+const STAGES = [
+  { n: 1, name: '単音' },
+  { n: 2, name: '2音' },
+  { n: 3, name: '3音' },
+  { n: 4, name: '4音' },
+];
+const STAGE_Q = 20;      // 1ステージの問題数
+const CLEAR_FIRST = 16;  // 一発正解がこの数以上（80%）
+const CLEAR_SEC = 3;     // 1音あたりの平均時間がこの秒数以内
+const isUnlocked = (mode) => mode === 'free' || mode <= progress.cleared + 1;
+const noteCount = () => (progress.mode === 'free' ? 1 : STAGES[progress.mode - 1].n);
 
 // ---- 出題 ----
 const noteId = (q) => `${q.clef}|${q.step}|${q.acc}`;
@@ -301,12 +333,20 @@ const pickNext = (prev) => {
 };
 
 // ---- 状態 ----
-let current = null;   // { clef, step, acc }
-let played = null;    // 間違えた音 { clef, step, acc }
-let state = 'ask';    // ask | done
-let shownAt = 0;
-let misses = 0;
+let current = null;   // { notes: [{ clef, step, acc }], pos: 次に弾く音の番号 }
+let played = null;    // 間違えた音 { clef, step, acc }（単音のときだけ譜面に出す）
+let state = 'ask';    // ask | done | result
+let shownAt = 0;      // 問題を出した時刻
+let noteAt = 0;       // いま弾く音の番になった時刻
+let misses = 0;       // この問題で間違えた回数
+let noteMisses = 0;   // いま弾く音で間違えた回数
+let nextTimer = 0;
 const session = { correct: 0, firstTry: 0, asked: 0, time: 0, streak: 0 };
+let stageRun = { done: 0, first: 0, time: 0 }; // ステージ中の成績（time は解答時間の合計）
+
+const target = () => current.notes[current.pos];
+const namesOf = (notes) => notes.map((q) => noteLabel(q.step, q.acc, settings.naming)).join('　');
+const hintText = () => (settings.hint && current ? namesOf(current.notes) : '');
 
 // ---- 譜面の描画 ----
 const W = 300;
@@ -338,7 +378,8 @@ const render = (colorQ) => {
   }
   if (!current) return;
 
-  const slots = [{ ...current, color: colorQ }];
+  const okColor = getComputedStyle(document.documentElement).getPropertyValue('--ok').trim();
+  const slots = current.notes.map((q, i) => ({ ...q, color: colorQ || (i < current.pos ? okColor : undefined) }));
   if (played) slots.push({ ...played, color: getComputedStyle(document.documentElement).getPropertyValue('--ng').trim() });
 
   const makeNote = (q) => {
@@ -356,9 +397,12 @@ const render = (colorQ) => {
   };
 
   const center = x + (W - x - 10) / 2 + 10;
-  const spread = slots.length === 1 ? 0 : 90;
+  // 単音は真ん中（間違えた音は右に並べる）、複数の音は音部記号の後ろから等間隔に並べる
+  const multi = current.notes.length > 1;
+  const startX = multi ? Object.values(staves)[0].getNoteStartX() + 12 : 0;
+  const spread = multi ? W - 20 - startX - 30 : slots.length === 1 ? 0 : 90;
   const voices = Object.entries(staves).map(([clef, stave]) => {
-    stave.setNoteStartX(center - spread / 2 - 10);
+    stave.setNoteStartX(multi ? startX : center - spread / 2 - 10);
     const ticks = slots.map((q) => (q.clef === clef ? makeNote(q) : new VF.GhostNote({ duration: 'w' })));
     const voice = new VF.Voice({ num_beats: 4 * slots.length, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
     voice.addTickables(ticks);
@@ -532,16 +576,42 @@ const setFeedback = (cls, html) => {
   fb.innerHTML = html;
 };
 
+const scheduleNext = (ms) => {
+  clearTimeout(nextTimer);
+  nextTimer = setTimeout(nextQuestion, ms);
+};
+
 const nextQuestion = () => {
-  current = pickNext(current);
+  if (progress.mode !== 'free' && stageRun.done >= STAGE_Q) {
+    showResult();
+    return;
+  }
+  let prev = current ? current.notes[current.notes.length - 1] : null;
+  const notes = [];
+  for (let i = 0; i < noteCount(); i++) {
+    prev = pickNext(prev);
+    notes.push(prev);
+  }
+  current = { notes, pos: 0 };
   played = null;
   misses = 0;
+  noteMisses = 0;
   state = 'ask';
   session.asked++;
   clearHints();
   render();
-  showName(settings.hint ? noteLabel(current.step, current.acc, settings.naming) : '');
-  shownAt = performance.now();
+  showName(hintText());
+  updateStageInfo();
+  shownAt = noteAt = performance.now();
+};
+
+// 1問終わるごとにステージの成績を足す
+const finishQuestion = (first, ms) => {
+  if (progress.mode === 'free') return;
+  stageRun.done++;
+  if (first) stageRun.first++;
+  stageRun.time += ms;
+  updateStageInfo();
 };
 
 const record = (q, ok, ms) => {
@@ -554,60 +624,146 @@ const record = (q, ok, ms) => {
   persist();
 };
 
-const matches = (midi) => {
-  const target = stepToMidi(current.step, current.acc);
-  return settings.oct ? (midi - target) % 12 === 0 : midi === target;
+const matches = (midi, q) => {
+  const want = stepToMidi(q.step, q.acc);
+  return settings.oct ? (midi - want) % 12 === 0 : midi === want;
 };
 
 const handleNote = (midi) => {
   if (!current || state !== 'ask') return;
-  if (matches(midi)) {
-    const ms = performance.now() - shownAt;
+  const q = target();
+  const multi = current.notes.length > 1;
+  if (matches(midi, q)) {
+    const now = performance.now();
+    if (noteMisses === 0) record(q, true, now - noteAt);
+    flashKey(midi, 'ok');
+    clearHints();
+    current.pos++;
+    noteMisses = 0;
+    noteAt = now;
+    played = null;
+    // 残りの音がある
+    if (current.pos < current.notes.length) {
+      render();
+      showName(hintText());
+      setFeedback('ok', `○ ${noteLabel(q.step, q.acc, settings.naming)}`);
+      return;
+    }
+    const ms = now - shownAt;
     state = 'done';
     session.correct++;
     if (misses === 0) {
       session.firstTry++;
       session.time += ms;
       session.streak++;
-      record(current, true, ms);
     } else {
       session.streak = 0;
     }
-    flashKey(midi, 'ok');
+    finishQuestion(misses === 0, ms);
     render(getComputedStyle(document.documentElement).getPropertyValue('--ok').trim());
-    setFeedback('ok', `○ ${noteLabel(current.step, current.acc, settings.naming)} <span class="sub">${(ms / 1000).toFixed(2)}秒</span>`);
+    setFeedback('ok', `○ ${multi ? 'ぜんぶ正解' : noteLabel(q.step, q.acc, settings.naming)} <span class="sub">${(ms / 1000).toFixed(2)}秒</span>`);
     updateStats();
-    setTimeout(nextQuestion, misses === 0 ? 450 : 900);
+    scheduleNext(misses === 0 ? 450 : 900);
     return;
   }
-  if (misses === 0) record(current, false, 0);
+  if (noteMisses === 0) record(q, false, 0);
   misses++;
+  noteMisses++;
   session.streak = 0;
-  const sp = midiToSpelling(midi, current.acc === -1);
-  played = { clef: settings.clef === 'grand' ? (midi >= 60 ? 'treble' : 'bass') : current.clef, ...sp };
+  const sp = midiToSpelling(midi, q.acc === -1);
+  if (!multi) played = { clef: settings.clef === 'grand' ? (midi >= 60 ? 'treble' : 'bass') : q.clef, ...sp };
   flashKey(midi, 'ng');
   render();
-  setFeedback('ng', `× 弾いた音は ${noteLabel(sp.step, sp.acc, settings.naming)}`);
-  if (misses >= 2) {
-    showName(noteLabel(current.step, current.acc, settings.naming));
-    showKey(stepToMidi(current.step, current.acc));
-    flashKey(stepToMidi(current.step, current.acc), 'hint', 0);
+  setFeedback('ng', `× ${multi ? `${current.pos + 1}つ目の音で ` : ''}弾いた音は ${noteLabel(sp.step, sp.acc, settings.naming)}`);
+  if (noteMisses >= 2) {
+    showName(`${multi ? `${current.pos + 1}つ目は ` : ''}${noteLabel(q.step, q.acc, settings.naming)}`);
+    showKey(stepToMidi(q.step, q.acc));
+    flashKey(stepToMidi(q.step, q.acc), 'hint', 0);
   }
   updateStats();
 };
 
 const skip = () => {
   if (!current || state !== 'ask') return;
-  if (misses === 0) record(current, false, 0);
+  if (noteMisses === 0) record(target(), false, 0);
   session.streak = 0;
   state = 'done';
-  const target = stepToMidi(current.step, current.acc);
-  showKey(target);
-  flashKey(target, 'hint', 900);
-  setFeedback('', `答えは ${noteLabel(current.step, current.acc, settings.naming)}`);
+  finishQuestion(false, performance.now() - shownAt);
+  const want = stepToMidi(target().step, target().acc);
+  showKey(want);
+  flashKey(want, 'hint', 900);
+  setFeedback('', `答えは ${namesOf(current.notes)}`);
   render(getComputedStyle(document.documentElement).getPropertyValue('--hint').trim());
   updateStats();
-  setTimeout(nextQuestion, 1200);
+  scheduleNext(current.notes.length > 1 ? 2000 : 1200);
+};
+
+// ---- ステージの進行 ----
+const renderStageBar = () => {
+  const modes = [...STAGES.map((_, i) => i + 1), 'free'];
+  $('stageBar').innerHTML = modes.map((m) => {
+    const label = m === 'free' ? '自由練習' : `${isUnlocked(m) ? '' : '🔒'}${STAGES[m - 1].name}`;
+    return `<button type="button" data-mode="${m}" aria-pressed="${m === progress.mode}"${isUnlocked(m) ? '' : ' disabled'}>${label}</button>`;
+  }).join('');
+};
+
+const updateStageInfo = () => {
+  if (progress.mode === 'free') {
+    $('stageInfo').innerHTML = '自由練習（単音・終わりなし）';
+    return;
+  }
+  const notes = stageRun.done * noteCount();
+  const per = notes ? `${(stageRun.time / notes / 1000).toFixed(1)}秒` : '–';
+  $('stageInfo').innerHTML =
+    `ステージ${progress.mode}　<b>${stageRun.done} / ${STAGE_Q}</b>問　一発正解 <b>${stageRun.first}</b>　1音 <b>${per}</b>` +
+    `<br>クリア: 一発正解${CLEAR_FIRST}問以上・1音平均${CLEAR_SEC}秒以内`;
+};
+
+const startStage = (mode) => {
+  clearTimeout(nextTimer);
+  // 答えている途中の問題は数えない
+  if (current && state === 'ask') session.asked = Math.max(0, session.asked - 1);
+  progress.mode = isUnlocked(mode) ? mode : progress.cleared + 1;
+  persist();
+  stageRun = { done: 0, first: 0, time: 0 };
+  current = null;
+  $('result').hidden = true;
+  $('staff').hidden = false;
+  $('skipBtn').hidden = false;
+  renderStageBar();
+  setFeedback('', noteCount() > 1 ? '楽譜の音を左から順に弾いてください' : '楽譜の音を弾いてください');
+  nextQuestion();
+  updateStats();
+};
+
+const showResult = () => {
+  state = 'result';
+  const mode = progress.mode;
+  const per = stageRun.time / (STAGE_Q * noteCount()) / 1000;
+  const okFirst = stageRun.first >= CLEAR_FIRST;
+  const okTime = per <= CLEAR_SEC;
+  const clear = okFirst && okTime;
+  if (clear && progress.cleared < mode) progress.cleared = mode;
+  persist();
+  const last = mode === STAGES.length;
+  const mark = (ok) => (ok ? '<span class="pass">○ 達成</span>' : '<span class="miss">× あと少し</span>');
+  const el = $('result');
+  el.className = 'result ' + (clear ? 'clear' : 'fail');
+  el.innerHTML =
+    `<h2>${clear ? (last ? '全ステージクリア！' : `ステージ${mode} クリア！`) : `ステージ${mode} 失敗…`}</h2>` +
+    `<p>一発正解 <b>${stageRun.first} / ${STAGE_Q}</b>問（${CLEAR_FIRST}問以上）${mark(okFirst)}</p>` +
+    `<p>1音あたり平均 <b>${per.toFixed(1)}秒</b>（${CLEAR_SEC}秒以内）${mark(okTime)}</p>` +
+    '<div class="controls">' +
+    (clear && !last ? `<button type="button" data-go="${mode + 1}">次のステージへ（${STAGES[mode].name}）</button>` : '') +
+    `<button type="button" class="${clear && !last ? 'ghost' : ''}" data-go="${mode}">もう一度</button>` +
+    '</div>';
+  el.hidden = false;
+  $('staff').hidden = true;
+  $('skipBtn').hidden = true;
+  showName('');
+  setFeedback('', '');
+  clearHints();
+  renderStageBar();
 };
 
 const updateStats = () => {
@@ -647,25 +803,31 @@ const onSettingsChanged = () => {
   persist();
   syncSettingsUI();
   buildKeyboard();
-  current = null;
-  session.asked = Math.max(0, session.asked - 1);
-  setFeedback('', '楽譜の音を弾いてください');
-  nextQuestion();
-  updateStats();
+  // 出題範囲が変わるので、ステージは最初からやり直す
+  startStage(progress.mode);
 };
 
 document.querySelectorAll('#clefSeg button').forEach((b) =>
   b.addEventListener('click', () => { settings.clef = b.dataset.v; onSettingsChanged(); })
 );
 $('rangeSel').addEventListener('change', (e) => { settings.ext = Number(e.target.value); onSettingsChanged(); });
-$('namingSel').addEventListener('change', (e) => { settings.naming = e.target.value; persist(); updateStats(); if (settings.hint && current) showName(noteLabel(current.step, current.acc, settings.naming)); });
+$('namingSel').addEventListener('change', (e) => { settings.naming = e.target.value; persist(); updateStats(); if (state === 'ask') showName(hintText()); });
 $('accChk').addEventListener('change', (e) => { settings.acc = e.target.checked; onSettingsChanged(); });
 $('octChk').addEventListener('change', (e) => { settings.oct = e.target.checked; persist(); });
 $('navSel').addEventListener('change', (e) => { settings.nav = e.target.value; persist(); syncKbScroll(); });
 $('hintChk').addEventListener('change', (e) => {
   settings.hint = e.target.checked;
   persist();
-  if (current) showName(settings.hint ? noteLabel(current.step, current.acc, settings.naming) : '');
+  if (state === 'ask') showName(hintText());
+});
+$('stageBar').addEventListener('click', (e) => {
+  const b = e.target instanceof Element ? e.target.closest('button[data-mode]') : null;
+  if (!b || b.disabled) return;
+  startStage(b.dataset.mode === 'free' ? 'free' : Number(b.dataset.mode));
+});
+$('result').addEventListener('click', (e) => {
+  const b = e.target instanceof Element ? e.target.closest('button[data-go]') : null;
+  if (b) startStage(Number(b.dataset.go));
 });
 $('skipBtn').addEventListener('click', skip);
 $('resetBtn').addEventListener('click', () => {
@@ -728,8 +890,7 @@ const initMidi = async () => {
 // ---- 開始 ----
 syncSettingsUI();
 buildKeyboard();
-nextQuestion();
-updateStats();
+startStage(progress.mode);
 initMidi();
 let navDrag = null; // { x: つかんだ位置, scroll: そのときの scrollLeft }
 const navMove = (e) => {
