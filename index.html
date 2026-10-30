@@ -83,8 +83,21 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 .check { display: flex; gap: 6px; align-items: center; font-size: .9rem; }
 .kb-wrap { width: 100%; overflow: hidden; }
-.kb-scroll { width: 100%; margin: 0; accent-color: var(--accent); height: 28px; cursor: ew-resize; }
-.kb-scroll[hidden] { display: none; }
+.kb-nav {
+  position: relative; width: 100%; height: 26px; margin-top: 2px; background: #fff;
+  border: 1px solid #aaa; border-radius: 4px; overflow: hidden; cursor: grab; touch-action: none; user-select: none;
+}
+.kb-nav[hidden] { display: none; }
+.kb-nav.dragging { cursor: grabbing; }
+.kb-nav-key { position: absolute; top: 0; }
+.kb-nav-key.white { bottom: 0; border-right: 1px solid #ccc; }
+.kb-nav-key.black { height: 60%; background: #444; }
+.kb-nav-key.c::after { content: ""; position: absolute; left: 1px; bottom: 2px; width: 3px; height: 3px; border-radius: 50%; background: #999; }
+.kb-nav-shade { position: absolute; top: 0; bottom: 0; background: rgba(43, 38, 32, .35); pointer-events: none; }
+.kb-nav-win {
+  position: absolute; top: 0; bottom: 0; border: 2px solid var(--accent); border-radius: 4px;
+  box-shadow: 0 0 0 1px #fff inset; pointer-events: none;
+}
 .kb { position: relative; height: 120px; margin: 0 auto; user-select: none; -webkit-user-select: none; touch-action: none; }
 .key { position: absolute; top: 0; border: 1px solid #555; border-radius: 0 0 5px 5px; cursor: pointer; }
 .key.white { background: #fff; height: 120px; z-index: 1; }
@@ -114,7 +127,12 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
   <section class="card stage" aria-label="出題">
     <div id="staff" role="img" aria-label="出題された音符"></div>
     <div class="kb-wrap" aria-label="画面の鍵盤"><div id="kb" class="kb"></div></div>
-    <input type="range" id="kbScroll" class="kb-scroll" min="0" max="1000" value="500" aria-label="鍵盤を左右に動かす" hidden>
+    <div id="kbNav" class="kb-nav" role="scrollbar" aria-controls="kb" aria-label="鍵盤の表示位置（ドラッグで左右に動かす）" hidden>
+      <div id="kbNavKeys"></div>
+      <div id="kbNavShadeL" class="kb-nav-shade" style="left:0"></div>
+      <div id="kbNavShadeR" class="kb-nav-shade" style="right:0"></div>
+      <div id="kbNavWin" class="kb-nav-win"></div>
+    </div>
     <div id="nameHint" class="name-hint"></div>
     <div id="feedback" class="feedback" aria-live="polite">楽譜の音を弾いてください</div>
     <div class="controls">
@@ -386,11 +404,19 @@ const buildKeyboard = () => {
     kb.appendChild(key);
   }
   kb.style.width = `${wi * whiteW}px`;
+  // 下の全体図：同じ鍵盤を縮小して並べる
+  const total = wi * whiteW;
+  $('kbNavKeys').innerHTML = [...kb.children].map((k) => {
+    const left = (parseFloat(k.style.left) / total) * 100;
+    const width = (parseFloat(k.style.width) / total) * 100;
+    const cls = k.classList.contains('black') ? 'black' : 'white' + (Number(k.dataset.midi) % 12 === 0 ? ' c' : '');
+    return `<div class="kb-nav-key ${cls}" style="left:${left}%;width:${width}%"></div>`;
+  }).join('');
   // はみ出すときは真ん中（中央ハ付近）を見せる
   setKbScroll(0.5);
 };
 
-// 鍵盤は指で動かさず、下のスライダーで左右に動かす（スワイプで打鍵してしまうのを防ぐ）
+// 鍵盤は指で動かさず、下の全体図の枠をドラッグして左右に動かす（スワイプで打鍵してしまうのを防ぐ）
 const kbOverflow = () => {
   const wrap = $('kb').parentElement;
   return Math.max(0, wrap.scrollWidth - wrap.clientWidth);
@@ -399,9 +425,14 @@ const setKbScroll = (ratio) => {
   const r = Math.min(1, Math.max(0, ratio));
   const over = kbOverflow();
   $('kb').parentElement.scrollLeft = r * over;
-  const bar = $('kbScroll');
-  bar.hidden = over === 0;
-  bar.value = String(Math.round(r * 1000));
+  const wrap = $('kb').parentElement;
+  $('kbNav').hidden = over === 0;
+  if (!over) return;
+  const winL = (wrap.scrollLeft / wrap.scrollWidth) * 100;
+  const winW = (wrap.clientWidth / wrap.scrollWidth) * 100;
+  Object.assign($('kbNavWin').style, { left: `${winL}%`, width: `${winW}%` });
+  $('kbNavShadeL').style.width = `${winL}%`;
+  $('kbNavShadeR').style.width = `${100 - winL - winW}%`;
 };
 const syncKbScroll = () => {
   const over = kbOverflow();
@@ -686,7 +717,31 @@ buildKeyboard();
 nextQuestion();
 updateStats();
 initMidi();
-$('kbScroll').addEventListener('input', (e) => setKbScroll(Number(e.target.value) / 1000));
+let navDrag = null; // 枠のどこをつかんだか（全体図の幅に対する割合）
+const navPos = (e) => {
+  const rect = $('kbNav').getBoundingClientRect();
+  return (e.clientX - rect.left) / rect.width;
+};
+const navMove = (e) => {
+  const wrap = $('kb').parentElement;
+  const winW = wrap.clientWidth / wrap.scrollWidth;
+  setKbScroll((navPos(e) - navDrag) / (1 - winW));
+};
+$('kbNav').addEventListener('pointerdown', (e) => {
+  const wrap = $('kb').parentElement;
+  const x = navPos(e);
+  const winL = wrap.scrollLeft / wrap.scrollWidth;
+  const winW = wrap.clientWidth / wrap.scrollWidth;
+  // 枠の中をつかんだらその位置のまま、外を押したらそこへ枠の中心を移す
+  navDrag = x >= winL && x <= winL + winW ? x - winL : winW / 2;
+  $('kbNav').setPointerCapture(e.pointerId);
+  $('kbNav').classList.add('dragging');
+  navMove(e);
+});
+$('kbNav').addEventListener('pointermove', (e) => { if (navDrag !== null) navMove(e); });
+['pointerup', 'pointercancel'].forEach((type) =>
+  $('kbNav').addEventListener(type, () => { navDrag = null; $('kbNav').classList.remove('dragging'); })
+);
 $('kb').parentElement.addEventListener('wheel', (e) => {
   const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.shiftKey ? e.deltaY : 0;
   const over = kbOverflow();
