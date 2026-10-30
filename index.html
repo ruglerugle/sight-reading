@@ -76,7 +76,7 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 .seg button { flex: 1; border: 0; border-radius: 0; background: transparent; color: var(--accent); padding: 4px 8px; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 .check { display: flex; gap: 6px; align-items: center; font-size: .9rem; }
-.kb-wrap { overflow-x: auto; padding-bottom: 4px; }
+.kb-wrap { width: 100%; overflow-x: auto; padding-bottom: 4px; }
 .kb { position: relative; height: 120px; margin: 0 auto; user-select: none; touch-action: manipulation; }
 .key { position: absolute; top: 0; border: 1px solid #555; border-radius: 0 0 5px 5px; cursor: pointer; }
 .key.white { background: #fff; height: 120px; z-index: 1; }
@@ -88,7 +88,7 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 .key.ok { background: var(--ok) !important; }
 .key.ng { background: var(--ng) !important; }
 .key.hint { background: var(--hint) !important; }
-.kb-note { font-size: .8rem; color: var(--muted); margin-top: 6px; }
+.kb-note { font-size: .8rem; color: var(--muted); text-align: center; }
 footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 16px 24px; }
 @media (max-width: 560px) {
   .stats { grid-template-columns: repeat(2, 1fr); }
@@ -105,11 +105,13 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 <main>
   <section class="card stage" aria-label="出題">
     <div id="staff" role="img" aria-label="出題された音符"></div>
+    <div class="kb-wrap" aria-label="画面の鍵盤"><div id="kb" class="kb"></div></div>
     <div id="nameHint" class="name-hint"></div>
     <div id="feedback" class="feedback" aria-live="polite">楽譜の音を弾いてください</div>
     <div class="controls">
       <button id="skipBtn" class="ghost" type="button">答えを見て次へ</button>
     </div>
+    <div class="kb-note">MIDIがないときは、画面の鍵盤をクリックするか、PCのキー（A W S E D F T G Y H U J K＝ド〜ド、Z / X でオクターブを下げる / 上げる）で弾けます。</div>
   </section>
 
   <section class="card" aria-label="成績">
@@ -160,10 +162,6 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
     </div>
   </section>
 
-  <section class="card" aria-label="画面の鍵盤">
-    <div class="kb-wrap"><div id="kb" class="kb"></div></div>
-    <div class="kb-note">MIDIがないときは、画面の鍵盤をクリックするか、PCのキー（A W S E D F T G Y H U J K＝ド〜ド、Z / X でオクターブを下げる / 上げる）で弾けます。</div>
-  </section>
 </main>
 
 <footer>MIDI入力は Chrome / Edge で使えます（Safari は非対応）。</footer>
@@ -379,6 +377,9 @@ const buildKeyboard = () => {
     kb.appendChild(key);
   }
   kb.style.width = `${wi * whiteW}px`;
+  // はみ出すときは真ん中（中央ハ付近）を見せる
+  const wrap = kb.parentElement;
+  wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2;
 };
 
 const flashKey = (midi, cls, ms = 350) => {
