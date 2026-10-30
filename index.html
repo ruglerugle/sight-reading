@@ -82,8 +82,10 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 .seg button { flex: 1; border: 0; border-radius: 0; background: transparent; color: var(--accent); padding: 4px 8px; }
 .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 .check { display: flex; gap: 6px; align-items: center; font-size: .9rem; }
-.kb-wrap { width: 100%; overflow-x: auto; padding-bottom: 4px; }
-.kb { position: relative; height: 120px; margin: 0 auto; user-select: none; touch-action: manipulation; }
+.kb-wrap { width: 100%; overflow: hidden; }
+.kb-scroll { width: 100%; margin: 0; accent-color: var(--accent); height: 28px; cursor: ew-resize; }
+.kb-scroll[hidden] { display: none; }
+.kb { position: relative; height: 120px; margin: 0 auto; user-select: none; -webkit-user-select: none; touch-action: none; }
 .key { position: absolute; top: 0; border: 1px solid #555; border-radius: 0 0 5px 5px; cursor: pointer; }
 .key.white { background: #fff; height: 120px; z-index: 1; }
 .key.black { background: #222; height: 74px; z-index: 2; }
@@ -112,6 +114,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
   <section class="card stage" aria-label="出題">
     <div id="staff" role="img" aria-label="出題された音符"></div>
     <div class="kb-wrap" aria-label="画面の鍵盤"><div id="kb" class="kb"></div></div>
+    <input type="range" id="kbScroll" class="kb-scroll" min="0" max="1000" value="500" aria-label="鍵盤を左右に動かす" hidden>
     <div id="nameHint" class="name-hint"></div>
     <div id="feedback" class="feedback" aria-live="polite">楽譜の音を弾いてください</div>
     <div class="controls">
@@ -384,8 +387,34 @@ const buildKeyboard = () => {
   }
   kb.style.width = `${wi * whiteW}px`;
   // はみ出すときは真ん中（中央ハ付近）を見せる
-  const wrap = kb.parentElement;
-  wrap.scrollLeft = (wrap.scrollWidth - wrap.clientWidth) / 2;
+  setKbScroll(0.5);
+};
+
+// 鍵盤は指で動かさず、下のスライダーで左右に動かす（スワイプで打鍵してしまうのを防ぐ）
+const kbOverflow = () => {
+  const wrap = $('kb').parentElement;
+  return Math.max(0, wrap.scrollWidth - wrap.clientWidth);
+};
+const setKbScroll = (ratio) => {
+  const r = Math.min(1, Math.max(0, ratio));
+  const over = kbOverflow();
+  $('kb').parentElement.scrollLeft = r * over;
+  const bar = $('kbScroll');
+  bar.hidden = over === 0;
+  bar.value = String(Math.round(r * 1000));
+};
+const syncKbScroll = () => {
+  const over = kbOverflow();
+  setKbScroll(over ? $('kb').parentElement.scrollLeft / over : 0.5);
+};
+const showKey = (midi) => {
+  const key = document.querySelector(`.key[data-midi="${midi}"]`);
+  const over = kbOverflow();
+  if (!key || !over) return;
+  const wrap = key.parentElement.parentElement;
+  const left = key.offsetLeft, right = left + key.offsetWidth;
+  if (left >= wrap.scrollLeft && right <= wrap.scrollLeft + wrap.clientWidth) return;
+  setKbScroll((left + key.offsetWidth / 2 - wrap.clientWidth / 2) / over);
 };
 
 const flashKey = (midi, cls, ms = 350) => {
@@ -518,6 +547,7 @@ const handleNote = (midi) => {
   setFeedback('ng', `× 弾いた音は ${noteLabel(sp.step, sp.acc, settings.naming)}`);
   if (misses >= 2) {
     showName(noteLabel(current.step, current.acc, settings.naming));
+    showKey(stepToMidi(current.step, current.acc));
     flashKey(stepToMidi(current.step, current.acc), 'hint', 0);
   }
   updateStats();
@@ -529,6 +559,7 @@ const skip = () => {
   session.streak = 0;
   state = 'done';
   const target = stepToMidi(current.step, current.acc);
+  showKey(target);
   flashKey(target, 'hint', 900);
   setFeedback('', `答えは ${noteLabel(current.step, current.acc, settings.naming)}`);
   render(getComputedStyle(document.documentElement).getPropertyValue('--hint').trim());
@@ -655,7 +686,15 @@ buildKeyboard();
 nextQuestion();
 updateStats();
 initMidi();
-window.addEventListener('resize', () => render());
+$('kbScroll').addEventListener('input', (e) => setKbScroll(Number(e.target.value) / 1000));
+$('kb').parentElement.addEventListener('wheel', (e) => {
+  const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.shiftKey ? e.deltaY : 0;
+  const over = kbOverflow();
+  if (!d || !over) return;
+  e.preventDefault();
+  setKbScroll(($('kb').parentElement.scrollLeft + d) / over);
+}, { passive: false });
+window.addEventListener('resize', () => { render(); syncKbScroll(); });
 </script>
 </body>
 </html>
