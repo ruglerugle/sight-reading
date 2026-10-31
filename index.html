@@ -284,12 +284,20 @@ const STAGES = [
   { n: 2, name: '2音' },
   { n: 3, name: '3音' },
   { n: 4, name: '4音' },
+  // chord: 同時に押さえる。dyad=重音、triad=三和音（基本形）、inv=転回形も混ぜる
+  { n: 2, name: '重音', chord: 'dyad' },
+  { n: 3, name: '和音', chord: 'triad' },
+  { n: 3, name: '転回形', chord: 'inv' },
 ];
 const STAGE_Q = 20;      // 1ステージの問題数
 const CLEAR_FIRST = 16;  // 一発正解がこの数以上（80%）
 const CLEAR_SEC = 3;     // 1音あたりの平均時間がこの秒数以内
+const CHORD_SEC = 4;     // 和音は1和音あたりの平均時間がこの秒数以内
 const isUnlocked = (mode) => mode === 'free' || mode <= progress.cleared + 1;
-const noteCount = () => (progress.mode === 'free' ? 1 : STAGES[progress.mode - 1].n);
+const stageOf = () => (progress.mode === 'free' ? { n: 1, name: '自由練習' } : STAGES[progress.mode - 1]);
+const noteCount = () => stageOf().n;
+// 時間の基準：和音は1問を1単位、それ以外は1音を1単位として数える
+const timeRule = () => (stageOf().chord ? { units: 1, label: '1和音', sec: CHORD_SEC } : { units: noteCount(), label: '1音', sec: CLEAR_SEC });
 
 // ---- 出題 ----
 const noteId = (q) => `${q.clef}|${q.step}|${q.acc}`;
@@ -332,8 +340,50 @@ const pickNext = (prev) => {
   return cands[cands.length - 1];
 };
 
+// ---- 和音 ----
+const pcOf = (step, acc) => (LETTER_PC[step % 7] + acc + 12) % 12;
+// step の位置で、音の高さ（ピッチクラス）が pc になる変化記号。♯・♭1つで書けなければ null
+const spellAt = (step, pc) => {
+  const d = (pc - LETTER_PC[step % 7] + 12) % 12;
+  return d === 0 ? 0 : d === 1 ? 1 : d === 11 ? -1 : null;
+};
+
+const buildChord = (kind) => {
+  const cands = buildCandidates();
+  for (let tries = 0; tries < 200; tries++) {
+    const root = pickNext(null);
+    const rootPc = pcOf(root.step, root.acc);
+    let notes;
+    let quality = '';
+    if (kind === 'dyad') {
+      const iv = [2, 3, 4, 5][Math.floor(Math.random() * 4)]; // 3度・4度・5度・6度
+      notes = [root, { clef: root.clef, step: root.step + iv, acc: 0 }];
+    } else {
+      // ♯・♭なしは白鍵だけの和音、ありは長三和音・短三和音
+      const third = settings.acc ? (Math.random() < 0.5 ? 4 : 3) : null;
+      const acc3 = third === null ? 0 : spellAt(root.step + 2, (rootPc + third) % 12);
+      const acc5 = third === null ? 0 : spellAt(root.step + 4, (rootPc + 7) % 12);
+      if (acc3 === null || acc5 === null) continue;
+      notes = [root, { clef: root.clef, step: root.step + 2, acc: acc3 }, { clef: root.clef, step: root.step + 4, acc: acc5 }];
+      const i3 = (pcOf(notes[1].step, acc3) - rootPc + 12) % 12;
+      const i5 = (pcOf(notes[2].step, acc5) - rootPc + 12) % 12;
+      quality = i3 === 4 ? (i5 === 8 ? 'aug' : '') : i5 === 6 ? 'dim' : 'm';
+      // 転回形：下の音を1オクターブ上げる
+      const inv = kind === 'inv' ? Math.floor(Math.random() * 3) : 0;
+      for (let i = 0; i < inv; i++) notes[i] = { ...notes[i], step: notes[i].step + 7 };
+      notes.sort((a, b) => a.step - b.step);
+    }
+    // 全部の音が出題範囲（同じ譜表）に入り、E♯・B♯・F♭・C♭ を含まないものだけ
+    if (!notes.every((q) => cands.some((c) => c.clef === q.clef && c.step === q.step && c.acc === q.acc))) continue;
+    const sym = (q) => NAMES.en[q.step % 7] + (q.acc === 1 ? '♯' : q.acc === -1 ? '♭' : '');
+    const symbol = kind === 'dyad' ? '' : sym(root) + quality + (notes[0].step % 7 !== root.step % 7 ? `/${sym(notes[0])}` : '');
+    return { notes, symbol };
+  }
+  return null;
+};
+
 // ---- 状態 ----
-let current = null;   // { notes: [{ clef, step, acc }], pos: 次に弾く音の番号 }
+let current = null;   // { notes: [{ clef, step, acc }], pos: 次に弾く音の番号, chord?: 和音の記号, down?: 押さえている音 }
 let played = null;    // 間違えた音 { clef, step, acc }（単音のときだけ譜面に出す）
 let state = 'ask';    // ask | done | result
 let shownAt = 0;      // 問題を出した時刻
@@ -379,26 +429,37 @@ const render = (colorQ) => {
   if (!current) return;
 
   const okColor = getComputedStyle(document.documentElement).getPropertyValue('--ok').trim();
-  const slots = current.notes.map((q, i) => ({ ...q, color: colorQ || (i < current.pos ? okColor : undefined) }));
-  if (played) slots.push({ ...played, color: getComputedStyle(document.documentElement).getPropertyValue('--ng').trim() });
+  // slot: { clef, keys: [{ step, acc, color }], color }（和音は keys が複数）
+  const slots = current.down
+    ? [{
+        clef: current.notes[0].clef,
+        color: colorQ,
+        keys: current.notes.map((q) => ({ ...q, color: [...current.down].some((m) => matches(m, q)) ? okColor : undefined })),
+      }]
+    : current.notes.map((q, i) => ({ clef: q.clef, keys: [q], color: colorQ || (i < current.pos ? okColor : undefined) }));
+  if (played) slots.push({ clef: played.clef, keys: [played], color: getComputedStyle(document.documentElement).getPropertyValue('--ng').trim() });
 
-  const makeNote = (q) => {
-    const n = new VF.StaveNote({ keys: [vfKey(q.step, q.acc)], duration: 'w', clef: q.clef });
-    if (q.acc) {
-      const a = new VF.Accidental(q.acc === 1 ? '#' : 'b');
-      if (q.color) a.setStyle({ fillStyle: q.color, strokeStyle: q.color });
-      n.addModifier(a, 0);
-    }
-    if (q.color) {
-      n.setStyle({ fillStyle: q.color, strokeStyle: q.color });
-      n.setLedgerLineStyle({ fillStyle: q.color, strokeStyle: q.color });
+  const makeNote = (slot) => {
+    const n = new VF.StaveNote({ keys: slot.keys.map((k) => vfKey(k.step, k.acc)), duration: 'w', clef: slot.clef });
+    slot.keys.forEach((k, i) => {
+      const color = slot.color || k.color;
+      if (k.acc) {
+        const a = new VF.Accidental(k.acc === 1 ? '#' : 'b');
+        if (color) a.setStyle({ fillStyle: color, strokeStyle: color });
+        n.addModifier(a, i);
+      }
+      if (color) n.setKeyStyle(i, { fillStyle: color, strokeStyle: color });
+    });
+    if (slot.color) {
+      n.setStyle({ fillStyle: slot.color, strokeStyle: slot.color });
+      n.setLedgerLineStyle({ fillStyle: slot.color, strokeStyle: slot.color });
     }
     return n;
   };
 
   const center = x + (W - x - 10) / 2 + 10;
   // 単音は真ん中（間違えた音は右に並べる）、複数の音は音部記号の後ろから等間隔に並べる
-  const multi = current.notes.length > 1;
+  const multi = !current.down && current.notes.length > 1;
   const startX = multi ? Object.values(staves)[0].getNoteStartX() + 12 : 0;
   const spread = multi ? W - 20 - startX - 30 : slots.length === 1 ? 0 : 90;
   const voices = Object.entries(staves).map(([clef, stave]) => {
@@ -586,13 +647,20 @@ const nextQuestion = () => {
     showResult();
     return;
   }
-  let prev = current ? current.notes[current.notes.length - 1] : null;
-  const notes = [];
-  for (let i = 0; i < noteCount(); i++) {
-    prev = pickNext(prev);
-    notes.push(prev);
+  const kind = stageOf().chord;
+  const chord = kind ? buildChord(kind) : null;
+  if (chord) {
+    current = { notes: chord.notes, pos: 0, chord: chord.symbol, down: new Set() };
+  } else {
+    // 和音が範囲に入らない設定（譜表の中だけ等）のときも、ここで単音の列にする
+    let prev = current ? current.notes[current.notes.length - 1] : null;
+    const notes = [];
+    for (let i = 0; i < noteCount(); i++) {
+      prev = pickNext(prev);
+      notes.push(prev);
+    }
+    current = { notes, pos: 0 };
   }
-  current = { notes, pos: 0 };
   played = null;
   misses = 0;
   noteMisses = 0;
@@ -629,8 +697,65 @@ const matches = (midi, q) => {
   return settings.oct ? (midi - want) % 12 === 0 : midi === want;
 };
 
+// 1問ぜんぶ弾けたとき
+const completeQuestion = (text) => {
+  const ms = performance.now() - shownAt;
+  state = 'done';
+  session.correct++;
+  if (misses === 0) {
+    session.firstTry++;
+    session.time += ms;
+    session.streak++;
+  } else {
+    session.streak = 0;
+  }
+  finishQuestion(misses === 0, ms);
+  render(getComputedStyle(document.documentElement).getPropertyValue('--ok').trim());
+  setFeedback('ok', `○ ${text} <span class="sub">${(ms / 1000).toFixed(2)}秒</span>`);
+  updateStats();
+  scheduleNext(misses === 0 ? 450 : 900);
+};
+
+// 和音：MIDIは全部の音を同時に押さえたら正解、画面の鍵盤・PCキーは全部押したら正解（離した音は down から消えない）
+const chordNoteOn = (midi) => {
+  const idx = current.notes.findIndex((q) => matches(midi, q));
+  if (idx < 0) {
+    misses++;
+    session.streak = 0;
+    const sp = midiToSpelling(midi, current.notes.some((q) => q.acc === -1));
+    flashKey(midi, 'ng');
+    setFeedback('ng', `× 和音にない音 ${noteLabel(sp.step, sp.acc, settings.naming)}`);
+    if (misses >= 2) {
+      showName(namesOf(current.notes));
+      current.notes.forEach((q) => flashKey(stepToMidi(q.step, q.acc), 'hint', 0));
+      showKey(stepToMidi(current.notes[0].step, current.notes[0].acc));
+    }
+    updateStats();
+    return;
+  }
+  current.down.add(midi);
+  flashKey(midi, 'ok');
+  if (current.notes.every((q) => [...current.down].some((m) => matches(m, q)))) {
+    clearHints();
+    current.pos = current.notes.length;
+    completeQuestion(`${namesOf(current.notes)}${current.chord ? `（${current.chord}）` : ''}`);
+    return;
+  }
+  render();
+};
+
+const noteOff = (midi) => {
+  if (!current || !current.down || state !== 'ask') return;
+  current.down.delete(midi);
+  render();
+};
+
 const handleNote = (midi) => {
   if (!current || state !== 'ask') return;
+  if (current.down) {
+    chordNoteOn(midi);
+    return;
+  }
   const q = target();
   const multi = current.notes.length > 1;
   if (matches(midi, q)) {
@@ -649,21 +774,7 @@ const handleNote = (midi) => {
       setFeedback('ok', `○ ${noteLabel(q.step, q.acc, settings.naming)}`);
       return;
     }
-    const ms = now - shownAt;
-    state = 'done';
-    session.correct++;
-    if (misses === 0) {
-      session.firstTry++;
-      session.time += ms;
-      session.streak++;
-    } else {
-      session.streak = 0;
-    }
-    finishQuestion(misses === 0, ms);
-    render(getComputedStyle(document.documentElement).getPropertyValue('--ok').trim());
-    setFeedback('ok', `○ ${multi ? 'ぜんぶ正解' : noteLabel(q.step, q.acc, settings.naming)} <span class="sub">${(ms / 1000).toFixed(2)}秒</span>`);
-    updateStats();
-    scheduleNext(misses === 0 ? 450 : 900);
+    completeQuestion(multi ? 'ぜんぶ正解' : noteLabel(q.step, q.acc, settings.naming));
     return;
   }
   if (noteMisses === 0) record(q, false, 0);
@@ -685,14 +796,14 @@ const handleNote = (midi) => {
 
 const skip = () => {
   if (!current || state !== 'ask') return;
-  if (noteMisses === 0) record(target(), false, 0);
+  if (!current.down && noteMisses === 0) record(target(), false, 0);
   session.streak = 0;
   state = 'done';
   finishQuestion(false, performance.now() - shownAt);
-  const want = stepToMidi(target().step, target().acc);
-  showKey(want);
-  flashKey(want, 'hint', 900);
-  setFeedback('', `答えは ${namesOf(current.notes)}`);
+  const rest = current.down ? current.notes : [target()];
+  showKey(stepToMidi(rest[0].step, rest[0].acc));
+  rest.forEach((q) => flashKey(stepToMidi(q.step, q.acc), 'hint', 900));
+  setFeedback('', `答えは ${namesOf(current.notes)}${current.chord ? `（${current.chord}）` : ''}`);
   render(getComputedStyle(document.documentElement).getPropertyValue('--hint').trim());
   updateStats();
   scheduleNext(current.notes.length > 1 ? 2000 : 1200);
@@ -712,11 +823,12 @@ const updateStageInfo = () => {
     $('stageInfo').innerHTML = '自由練習（単音・終わりなし）';
     return;
   }
-  const notes = stageRun.done * noteCount();
-  const per = notes ? `${(stageRun.time / notes / 1000).toFixed(1)}秒` : '–';
+  const rule = timeRule();
+  const units = stageRun.done * rule.units;
+  const per = units ? `${(stageRun.time / units / 1000).toFixed(1)}秒` : '–';
   $('stageInfo').innerHTML =
-    `ステージ${progress.mode}　<b>${stageRun.done} / ${STAGE_Q}</b>問　一発正解 <b>${stageRun.first}</b>　1音 <b>${per}</b>` +
-    `<br>クリア: 一発正解${CLEAR_FIRST}問以上・1音平均${CLEAR_SEC}秒以内`;
+    `ステージ${progress.mode}　<b>${stageRun.done} / ${STAGE_Q}</b>問　一発正解 <b>${stageRun.first}</b>　${rule.label} <b>${per}</b>` +
+    `<br>クリア: 一発正解${CLEAR_FIRST}問以上・${rule.label}平均${rule.sec}秒以内`;
 };
 
 const startStage = (mode) => {
@@ -731,7 +843,7 @@ const startStage = (mode) => {
   $('staff').hidden = false;
   $('skipBtn').hidden = false;
   renderStageBar();
-  setFeedback('', noteCount() > 1 ? '楽譜の音を左から順に弾いてください' : '楽譜の音を弾いてください');
+  setFeedback('', stageOf().chord ? '和音の音をぜんぶ同時に押さえてください' : noteCount() > 1 ? '楽譜の音を左から順に弾いてください' : '楽譜の音を弾いてください');
   nextQuestion();
   updateStats();
 };
@@ -739,9 +851,10 @@ const startStage = (mode) => {
 const showResult = () => {
   state = 'result';
   const mode = progress.mode;
-  const per = stageRun.time / (STAGE_Q * noteCount()) / 1000;
+  const rule = timeRule();
+  const per = stageRun.time / (STAGE_Q * rule.units) / 1000;
   const okFirst = stageRun.first >= CLEAR_FIRST;
-  const okTime = per <= CLEAR_SEC;
+  const okTime = per <= rule.sec;
   const clear = okFirst && okTime;
   if (clear && progress.cleared < mode) progress.cleared = mode;
   persist();
@@ -752,7 +865,7 @@ const showResult = () => {
   el.innerHTML =
     `<h2>${clear ? (last ? '全ステージクリア！' : `ステージ${mode} クリア！`) : `ステージ${mode} 失敗…`}</h2>` +
     `<p>一発正解 <b>${stageRun.first} / ${STAGE_Q}</b>問（${CLEAR_FIRST}問以上）${mark(okFirst)}</p>` +
-    `<p>1音あたり平均 <b>${per.toFixed(1)}秒</b>（${CLEAR_SEC}秒以内）${mark(okTime)}</p>` +
+    `<p>${rule.label}あたり平均 <b>${per.toFixed(1)}秒</b>（${rule.sec}秒以内）${mark(okTime)}</p>` +
     '<div class="controls">' +
     (clear && !last ? `<button type="button" data-go="${mode + 1}">次のステージへ（${STAGES[mode].name}）</button>` : '') +
     `<button type="button" class="${clear && !last ? 'ghost' : ''}" data-go="${mode}">もう一度</button>` +
@@ -862,7 +975,9 @@ const setMidiStatus = (cls, text) => {
 
 const onMidiMessage = (e) => {
   const [status, note, vel] = e.data;
-  if ((status & 0xf0) === 0x90 && vel > 0) handleNote(note);
+  const type = status & 0xf0;
+  if (type === 0x90 && vel > 0) handleNote(note);
+  else if (type === 0x80 || type === 0x90) noteOff(note);
 };
 
 const initMidi = async () => {
