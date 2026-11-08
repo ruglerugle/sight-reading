@@ -10,7 +10,7 @@ const KEY_ACC = { C: {}, Am: {}, G: { 3: 1 }, D: { 3: 1, 0: 1 }, F: { 6: -1 } };
 const TEMPO_WINDOW = 150; // テンポの判定：このミリ秒以内のずれならちょうど
 const SONG_W = 360;       // 曲の譜面の幅（viewBox）
 
-const SONG_GENRES = [['classic', 'クラシック・民謡'], ['jazz', 'ジャズ（オリジナル練習曲）']];
+const SONG_GENRES = [['sight', '初見チャレンジ（毎日かわる・自動作曲）'], ['classic', 'クラシック・民謡'], ['jazz', 'ジャズ（オリジナル練習曲）']];
 const HAND_SETS = { rh: ['rh'], lhs: ['lhs'], bothS: ['rh', 'lhs'], lh: ['lh'], both: ['rh', 'lh'] };
 const HAND_LABEL = { rh: '右手', lhs: '左手（簡易）', bothS: '両手（簡易）', lh: '左手', both: '両手' };
 
@@ -96,6 +96,17 @@ const eventsSig = (evs) => evs.map((e) => `${e.t}:${e.keys.map((k) => k.midi).jo
 const songStepsCache = new Map();
 const songSteps = (song) => {
   if (songStepsCache.has(song.id)) return songStepsCache.get(song.id);
+  // 初見チャレンジは、初見で通して弾く → テンポ80% → 100%
+  if (song.generated) {
+    const all = [0, song.rh.length];
+    const st = [
+      { kind: 'pace', hands: 'both', range: all, label: '初見で通して弾く（自分のペース）' },
+      { kind: 'tempo', pct: 80, hands: 'both', range: all, label: 'テンポ80%（メトロノームに合わせる）' },
+      { kind: 'tempo', pct: 100, hands: 'both', range: all, label: 'テンポ100%（メトロノームに合わせる）' },
+    ];
+    songStepsCache.set(song.id, st);
+    return st;
+  }
   const c = compileSong(song);
   const ph = song.phrases;
   const steps = [];
@@ -678,6 +689,7 @@ const playSongDemo = () => {
 
 // ---- 曲モードに入る・出る ----
 const enterSong = () => {
+  ensureSightSongs();
   $('songPanel').hidden = false;
   $('skipBtn').hidden = true;
   const song = currentSong();
@@ -708,4 +720,115 @@ const initSongUI = () => {
     if (b) startSongStep(Number(b.dataset.step));
     if (e.target instanceof Element && e.target.closest('button[data-plan-cta]')) buyPlan();
   });
+};
+
+// ---- 初見チャレンジ：毎日かわる自動作曲の練習曲（Lv1〜4） ----
+// 同じ日・同じレベルなら、どの端末でも同じ曲になる（日付から乱数の種を作る）
+const SIGHT_LEVELS = [
+  { lv: 1, desc: '右手だけ・ドから5つの音・4分と2分音符', bars: 4, keys: ['C'], lo: 0, hi: 4, both: false, tempo: 72,
+    steps: [[1, 75], [2, 18], [0, 7]], rhythms: [['q', 'q', 'q', 'q'], ['h', 'q', 'q'], ['q', 'q', 'h'], ['h', 'h']] },
+  { lv: 2, desc: '右手だけ・1オクターブ・8分音符と3度の跳躍', bars: 4, keys: ['C', 'G'], lo: 0, hi: 7, both: false, tempo: 80,
+    steps: [[1, 55], [2, 30], [3, 10], [0, 5]], rhythms: [['q', 'q', 'q', 'q'], ['h', 'q', 'q'], ['q', 'q', 'h'], ['q', '8', '8', 'q', 'q'], ['8', '8', 'q', 'h'], ['q.', '8', 'q', 'q']] },
+  { lv: 3, desc: '両手・左手は和音の根音（I・IV・V）', bars: 4, keys: ['C', 'G', 'F'], lo: 0, hi: 7, both: true, tempo: 72,
+    steps: [[1, 55], [2, 30], [3, 10], [0, 5]], rhythms: [['q', 'q', 'q', 'q'], ['h', 'q', 'q'], ['q', 'q', 'h'], ['q', '8', '8', 'q', 'q'], ['q.', '8', 'q', 'q']] },
+  { lv: 4, desc: '両手・8小節・付点のリズムと4度・5度の跳躍', bars: 8, keys: ['C', 'G', 'F', 'D'], lo: -2, hi: 9, both: true, tempo: 84,
+    steps: [[1, 50], [2, 28], [3, 12], [4, 6], [0, 4]], rhythms: [['q', 'q', 'q', 'q'], ['q', '8', '8', 'q', 'q'], ['q.', '8', 'q', 'q'], ['q.', '8', 'q.', '8'], ['8', '8', '8', '8', 'q', 'q'], ['h', 'q', 'q']] },
+];
+const KEY_TONIC = { C: 0, G: 4, F: 3, D: 1 }; // 主音の音名番号
+const PROGRESSIONS = { 4: [0, 3, 4, 0], 8: [0, 3, 4, 0, 5, 3, 4, 0] }; // 小節ごとの和音（主音からの度数）
+
+const seededRandom = (text) => {
+  let h = 2166136261;
+  for (const ch of text) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return () => {
+    h = (h + 0x6d2b79f5) | 0;
+    let t = Math.imul(h ^ (h >>> 15), 1 | h);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+const pickWeighted = (rand, list) => {
+  const total = list.reduce((a, [, w]) => a + w, 0);
+  let x = rand() * total;
+  for (const [v, w] of list) {
+    x -= w;
+    if (x <= 0) return v;
+  }
+  return list[list.length - 1][0];
+};
+
+const generateSightSong = (L, day) => {
+  const rand = seededRandom(`${day}|${L.lv}`);
+  const key = L.keys[Math.floor(rand() * L.keys.length)];
+  const tonic = 28 + KEY_TONIC[key]; // 4オクターブ目の主音（step）
+  const acc = (step) => (KEY_ACC[key] || {})[step % 7] || 0;
+  const tok = (step, dur) => `${LETTERS[step % 7]}${acc(step) === 1 ? '#' : acc(step) === -1 ? 'b' : ''}${Math.floor(step / 7)}/${dur}`;
+  const lo = tonic + L.lo;
+  const hi = tonic + L.hi;
+  const prog = PROGRESSIONS[L.bars];
+  // 和音の構成音（主音からの度数）に近いほうへ寄せる
+  const nearestChordTone = (step, degree) => {
+    let best = step;
+    let dist = 99;
+    for (let s = lo; s <= hi; s++) {
+      const d = (((s - tonic - degree) % 7) + 7) % 7;
+      if ((d === 0 || d === 2 || d === 4) && Math.abs(s - step) < dist) { best = s; dist = Math.abs(s - step); }
+    }
+    return best;
+  };
+  let cur = tonic + (L.lv === 1 ? 0 : [0, 2, 4][Math.floor(rand() * 3)]);
+  const rh = [];
+  for (let m = 0; m < L.bars; m++) {
+    const last = m === L.bars - 1;
+    const rhythm = last ? (L.lv === 1 ? ['w'] : ['h', 'h']) : L.rhythms[Math.floor(rand() * L.rhythms.length)];
+    const notes = rhythm.map((dur, i) => {
+      if (last && i === rhythm.length - 1) {
+        cur = tonic; // 最後は主音で終わる
+      } else if (last) {
+        cur = [tonic + 1, tonic + 4, tonic - 1].filter((s) => s >= lo && s <= hi)[0] ?? tonic + 1;
+      } else if (!(m === 0 && i === 0)) {
+        const step = pickWeighted(rand, L.steps) * (rand() < 0.5 ? -1 : 1);
+        let next = cur + step;
+        if (next < lo || next > hi) next = cur - step; // はみ出すなら反対へ
+        cur = Math.min(hi, Math.max(lo, next));
+        if (L.both && i === 0) cur = nearestChordTone(cur, prog[m]); // 小節の頭は和音の音に
+      }
+      return tok(cur, dur);
+    });
+    rh.push(notes.join(' '));
+  }
+  // 左手：Lv1・2は休み、Lv3は根音の全音符、Lv4は根音と5度の2分音符
+  // 根音は ソ2〜ファ3（ヘ音記号の譜表の中）に置く。5度上でもド4まで
+  const bassRoot = (degree) => {
+    let s = tonic - 7 + degree;
+    while (s > 24) s -= 7;
+    while (s < 18) s += 7;
+    return s;
+  };
+  const lh = prog.map((degree) => {
+    if (!L.both) return 'r/w';
+    const root = bassRoot(degree);
+    return L.lv === 3 ? tok(root, 'w') : `${tok(root, 'h')} ${tok(root + 4, 'h')}`;
+  });
+  const [, mm, dd] = day.split('-');
+  return {
+    id: `sight-${day}-${L.lv}`,
+    genre: 'sight',
+    generated: true,
+    sightLevel: L.lv,
+    title: `初見チャレンジ Lv${L.lv}`,
+    composer: `${Number(mm)}月${Number(dd)}日の曲`,
+    credit: `${L.desc}。毎日0時に新しい曲になります（自動作曲）。はじめて見る楽譜を止まらずに読むのが初見の練習です`,
+    key, time: '4/4', tempo: L.tempo,
+    rh, lh,
+    phrases: L.bars === 4 ? [[0, 4]] : [[0, 4], [4, 8]],
+  };
+};
+
+// 今日の初見チャレンジを曲の一覧の先頭に置く（日付が変わっていたら入れ替える）
+const ensureSightSongs = () => {
+  const day = dayKey();
+  if (SONGS.some((s) => s.id === `sight-${day}-1`)) return;
+  for (let i = SONGS.length - 1; i >= 0; i--) if (SONGS[i].generated) SONGS.splice(i, 1);
+  SONGS.unshift(...SIGHT_LEVELS.map((L) => generateSightSong(L, day)));
 };

@@ -1,7 +1,46 @@
 'use strict';
 // このファイルは piano-billing の npm run build-free で作る。直接書き換えない（完全版の楽譜は piano-billing/src/songs-full.ts）
-// 無料で公開する範囲：twinkle・ode-to-joy・jazz-blues-c は全部、ほかの曲は最初のフレーズだけ（locked: true。続きは有料版で /api/songs から受け取る）
+// 無料で公開する範囲：mary-lamb・twinkle・ode-to-joy・jazz-blues-c は全部、ほかの曲は最初のフレーズだけ（locked: true。続きは有料版で /api/songs から受け取る）
 const SONGS = [
+  {
+    "id": "mary-lamb",
+    "title": "メリーさんのひつじ",
+    "composer": "アメリカ民謡",
+    "credit": "いちばんやさしい練習曲。右手はミ・レ・ドの3つの音とソだけ。左手は練習用の編曲",
+    "key": "C",
+    "time": "4/4",
+    "tempo": 96,
+    "rh": [
+      "e4/q d4/q c4/q d4/q",
+      "e4/q e4/q e4/h",
+      "d4/q d4/q d4/h",
+      "e4/q g4/q g4/h",
+      "e4/q d4/q c4/q d4/q",
+      "e4/q e4/q e4/q e4/q",
+      "d4/q d4/q e4/q d4/q",
+      "c4/w"
+    ],
+    "lh": [
+      "c3/w",
+      "c3/w",
+      "g2/w",
+      "c3/w",
+      "c3/w",
+      "c3/w",
+      "g2/w",
+      "c3/w"
+    ],
+    "phrases": [
+      [
+        0,
+        4
+      ],
+      [
+        4,
+        8
+      ]
+    ]
+  },
   {
     "id": "twinkle",
     "title": "きらきら星",
@@ -144,6 +183,90 @@ const SONGS = [
     ],
     "locked": true,
     "fullPhrases": 4
+  },
+  {
+    "id": "sakura",
+    "title": "さくらさくら",
+    "composer": "日本古謡",
+    "credit": "日本の古い歌（作者不詳）。ラ・シ・ド・ミ・ファの「都節」の音階。左手は練習用の編曲（5度の持続音）",
+    "key": "C",
+    "time": "4/4",
+    "tempo": 72,
+    "rh": [
+      "a4/q a4/q b4/h",
+      "a4/q a4/q b4/h"
+    ],
+    "lh": [
+      "(a2 e3)/w",
+      "(a2 e3)/w"
+    ],
+    "phrases": [
+      [
+        0,
+        2
+      ]
+    ],
+    "locked": true,
+    "fullPhrases": 4
+  },
+  {
+    "id": "jingle-bells",
+    "title": "ジングルベル",
+    "composer": "ピアポント",
+    "credit": "サビの16小節（1857年）。左手は練習用の編曲",
+    "key": "C",
+    "time": "4/4",
+    "tempo": 120,
+    "rh": [
+      "e4/q e4/q e4/h",
+      "e4/q e4/q e4/h",
+      "e4/q g4/q c4/q. d4/8",
+      "e4/w"
+    ],
+    "lh": [
+      "c3/h g2/h",
+      "c3/h g2/h",
+      "c3/h g2/h",
+      "c3/h g2/h"
+    ],
+    "phrases": [
+      [
+        0,
+        4
+      ]
+    ],
+    "locked": true,
+    "fullPhrases": 4
+  },
+  {
+    "id": "silent-night",
+    "title": "きよしこの夜",
+    "composer": "グルーバー",
+    "credit": "1818年のクリスマスの歌。8分の6拍子（付点4分音符で1拍）。ハ長調に移調、左手は練習用の編曲",
+    "key": "C",
+    "time": "6/8",
+    "tempo": 96,
+    "click": 1.5,
+    "rh": [
+      "g4/q. a4/8 g4/q",
+      "e4/h.",
+      "g4/q. a4/8 g4/q",
+      "e4/h."
+    ],
+    "lh": [
+      "(c3 g3)/h.",
+      "(c3 g3)/h.",
+      "(c3 g3)/h.",
+      "(c3 g3)/h."
+    ],
+    "phrases": [
+      [
+        0,
+        4
+      ]
+    ],
+    "locked": true,
+    "fullPhrases": 6
   },
   {
     "id": "brahms-lullaby",

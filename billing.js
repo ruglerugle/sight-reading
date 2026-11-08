@@ -92,6 +92,7 @@ const loadFullSongs = async () => {
   if (!SONGS.some((s) => s.locked)) return;
   const { songs } = await apiGet('/api/songs');
   SONGS.splice(0, SONGS.length, ...songs);
+  ensureSightSongs();
   compiledSongs.clear();
   songStepsCache.clear();
   renderStageBar();

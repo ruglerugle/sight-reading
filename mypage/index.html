@@ -137,9 +137,9 @@ footer { padding-bottom: 28px; text-align: center; font-size: .8rem; color: var(
 </footer>
 <div id="tip" class="tip" hidden></div>
 
-<script src="../songs.js?v=3"></script>
+<script src="../songs.js?v=4"></script>
 <script src="../game.js?v=3"></script>
-<script src="../song-mode.js?v=8"></script>
+<script src="../song-mode.js?v=9"></script>
 <script src="../record-sync.js?v=1"></script>
 <script>
 'use strict';
@@ -315,6 +315,7 @@ const renderBadgeList = () => {
 
 const renderAll = (me) => {
   load();
+  ensureSightSongs();
   renderAccount(me);
   renderTiles();
   renderCalendar();
@@ -331,6 +332,7 @@ const loadFullSongs = async () => {
   if (!res.ok) return;
   const { songs } = await res.json();
   SONGS.splice(0, SONGS.length, ...songs);
+  ensureSightSongs();
   compiledSongs.clear();
   songStepsCache.clear();
 };

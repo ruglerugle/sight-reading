@@ -232,6 +232,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
         <li><b>単音〜4音</b>：音符が1〜4個ならびます。左から順に弾きます。音が増えるほど、いま弾く音より先の音を読んでおく力がつきます。</li>
         <li><b>重音・和音・転回形</b>：縦に重なった音を同時に押さえます（画面の鍵盤・PCキーは順に押せばかまいません）。転回形は、和音のいちばん下の音を1オクターブ上に移した形です。</li>
         <li><b>♪ 曲・自由練習</b>：いつでも使えます。自由練習は単音が終わりなく出ます。</li>
+        <li><b>初見チャレンジ</b>：「♪ 曲」のいちばん上にある、毎日0時に新しくなる自動作曲の練習曲（Lv1〜4）。はじめて見る楽譜を止まらずに読むのが初見の練習です。だれでも無料で弾けます。</li>
       </ul>
       <h3>クリア条件</h3>
       <p>1ステージは20問。<b>一発正解が16問以上</b>で、<b>1音あたりの平均が3秒以内</b>（和音のステージは1和音あたり4秒以内）ならクリアで、次のステージが開きます。進み具合はト音記号・ヘ音記号・大譜表で別々です。「オクターブ違いも正解」にしているあいだは、クリアを記録しません。</p>
@@ -375,11 +376,11 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
   <div class="controls"><button id="acctClose" type="button" class="ghost">閉じる</button></div>
 </dialog>
 
-<script src="songs.js?v=3"></script>
+<script src="songs.js?v=4"></script>
 <script src="game.js?v=3"></script>
-<script src="song-mode.js?v=8"></script>
+<script src="song-mode.js?v=9"></script>
 <script src="record-sync.js?v=1"></script>
-<script src="billing.js?v=4"></script>
+<script src="billing.js?v=5"></script>
 <script>
 'use strict';
 const VF = Vex.Flow;
@@ -1290,6 +1291,7 @@ const initMidi = async () => {
 if (!Object.values(progress.clears).some((n) => n > 0) && !Object.keys(noteStats).length) $('intro').open = true;
 syncSettingsUI();
 initSongUI();
+ensureSightSongs();
 buildKeyboard();
 startStage(progress.mode);
 initBilling();
