@@ -431,7 +431,7 @@ const settings = Object.assign(
 let noteStats = stored.noteStats || {}; // id -> { n, miss, time }
 // mode: ステージ番号か 'free'・'song'。song/songs: 曲の練習の位置と記録
 // clears: 音部記号ごとにクリアした一番上のステージ { treble, bass, grand }
-// cleared: clears のいちばん大きい値（学習記録 my.habatakijuku.com が数える。古い版はこれ1つだけだった）
+// cleared: clears のいちばん大きい値（古い版はこれ1つだけだった）
 const progress = Object.assign({ mode: 1, cleared: 0 }, stored.progress || {});
 if (!progress.clears || typeof progress.clears !== 'object') {
   // 古い版の記録は、そのとき選んでいた音部記号のものとして引き継ぐ
@@ -1323,6 +1323,5 @@ $('kb').parentElement.addEventListener('wheel', (e) => {
 }, { passive: false });
 window.addEventListener('resize', () => { render(); syncKbScroll(); });
 </script>
-<script src="https://my.habatakijuku.com/sync.js" defer></script>
 </body>
 </html>
