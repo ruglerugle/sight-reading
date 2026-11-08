@@ -124,6 +124,11 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 .result p { margin: 0; }
 .result .pass { color: var(--ok); font-weight: 700; }
 .result .miss { color: var(--ng); font-weight: 700; }
+.song-panel { display: grid; gap: 6px; justify-items: center; width: 100%; }
+.song-panel[hidden] { display: none; }
+.song-panel label { display: flex; gap: 6px; align-items: center; font-size: .9rem; color: var(--muted); width: min(100%, 460px); white-space: nowrap; }
+.song-panel select { flex: 1; min-width: 0; }
+.song-credit { font-size: .8rem; color: var(--muted); text-align: center; }
 .kb-note { font-size: .8rem; color: var(--muted); text-align: center; }
 footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 16px 24px; }
 @media (max-width: 560px) {
@@ -141,6 +146,16 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 <main>
   <section class="card stage" aria-label="出題">
     <div id="stageBar" class="stage-bar" role="group" aria-label="ステージ"></div>
+    <div id="songPanel" class="song-panel" hidden>
+      <label>曲 <select id="songSel"></select></label>
+      <label>ステップ <select id="stepSel"></select></label>
+      <div class="controls">
+        <button id="startBtn" type="button" hidden>スタート</button>
+        <button id="demoBtn" class="ghost" type="button">お手本を聴く</button>
+        <button id="retryBtn" class="ghost" type="button">はじめから</button>
+      </div>
+      <div id="songCredit" class="song-credit"></div>
+    </div>
     <div id="stageInfo" class="stage-info" aria-live="polite"></div>
     <div id="result" class="result" aria-live="polite" hidden></div>
     <div id="staff" role="img" aria-label="出題された音符"></div>
@@ -218,6 +233,8 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 
 <footer>MIDI入力は Chrome / Edge で使えます（Safari は非対応）。</footer>
 
+<script src="songs.js?v=1"></script>
+<script src="song-mode.js?v=1"></script>
 <script>
 'use strict';
 const VF = Vex.Flow;
@@ -274,7 +291,7 @@ const settings = Object.assign(
   stored.settings || {}
 );
 let noteStats = stored.noteStats || {}; // id -> { n, miss, time }
-// mode: ステージ番号（1〜4）か 'free'。cleared: クリアした一番上のステージ
+// mode: ステージ番号か 'free'・'song'。cleared: クリアした一番上のステージ。song/songs: 曲の練習の位置と記録
 const progress = Object.assign({ mode: 1, cleared: 0 }, stored.progress || {});
 const persist = () => saveStore({ settings, noteStats, progress });
 
@@ -293,7 +310,7 @@ const STAGE_Q = 20;      // 1ステージの問題数
 const CLEAR_FIRST = 16;  // 一発正解がこの数以上（80%）
 const CLEAR_SEC = 3;     // 1音あたりの平均時間がこの秒数以内
 const CHORD_SEC = 4;     // 和音は1和音あたりの平均時間がこの秒数以内
-const isUnlocked = (mode) => mode === 'free' || mode <= progress.cleared + 1;
+const isUnlocked = (mode) => mode === 'free' || mode === 'song' || mode <= progress.cleared + 1;
 const stageOf = () => (progress.mode === 'free' ? { n: 1, name: '自由練習' } : STAGES[progress.mode - 1]);
 const noteCount = () => stageOf().n;
 // 時間の基準：和音は1問を1単位、それ以外は1音を1単位として数える
@@ -403,6 +420,10 @@ const W = 300;
 const $ = (id) => document.getElementById(id);
 
 const render = (colorQ) => {
+  if (progress.mode === 'song') {
+    renderSong();
+    return;
+  }
   const el = $('staff');
   el.innerHTML = '';
   const grand = settings.clef === 'grand';
@@ -487,7 +508,7 @@ const isBlack = (pc) => [1, 3, 6, 8, 10].includes(pc);
 let kbRange = [48, 84];
 
 const buildKeyboard = () => {
-  const midis = buildCandidates().map((q) => stepToMidi(q.step, q.acc));
+  const midis = progress.mode === 'song' ? songKbMidis() : buildCandidates().map((q) => stepToMidi(q.step, q.acc));
   const lo = Math.floor(Math.min(...midis) / 12) * 12;
   const hi = Math.ceil((Math.max(...midis) + 1) / 12) * 12;
   kbRange = [lo, hi];
@@ -602,11 +623,12 @@ const unlockAudio = () => {
   document.addEventListener(type, unlockAudio, { once: true, capture: true })
 );
 
-const beep = (midi) => {
+// at: 鳴らす時刻（AudioContext の時計）。省略したら今すぐ。止めるときのために gain を返す
+const beep = (midi, at = 0) => {
   try {
     const { ctx, out, wave } = getAudio();
     if (ctx.state === 'suspended') ctx.resume();
-    const t = ctx.currentTime;
+    const t = Math.max(ctx.currentTime, at);
     const freq = 440 * 2 ** ((midi - 69) / 12);
     const len = Math.min(2.5, Math.max(0.8, 2.5 - (midi - 48) / 30)); // 低い音ほど長く響く
     const osc = ctx.createOscillator();
@@ -624,8 +646,10 @@ const beep = (midi) => {
     osc.connect(filter).connect(gain).connect(out);
     osc.start(t);
     osc.stop(t + len + 0.05);
+    return gain;
   } catch (e) {
     console.warn('音を鳴らせませんでした', e);
+    return null;
   }
 };
 
@@ -745,12 +769,17 @@ const chordNoteOn = (midi) => {
 };
 
 const noteOff = (midi) => {
+  if (progress.mode === 'song') return;
   if (!current || !current.down || state !== 'ask') return;
   current.down.delete(midi);
   render();
 };
 
 const handleNote = (midi) => {
+  if (progress.mode === 'song') {
+    songNoteOn(midi);
+    return;
+  }
   if (!current || state !== 'ask') return;
   if (current.down) {
     chordNoteOn(midi);
@@ -811,9 +840,9 @@ const skip = () => {
 
 // ---- ステージの進行 ----
 const renderStageBar = () => {
-  const modes = [...STAGES.map((_, i) => i + 1), 'free'];
+  const modes = [...STAGES.map((_, i) => i + 1), 'song', 'free'];
   $('stageBar').innerHTML = modes.map((m) => {
-    const label = m === 'free' ? '自由練習' : `${isUnlocked(m) ? '' : '🔒'}${STAGES[m - 1].name}`;
+    const label = m === 'free' ? '自由練習' : m === 'song' ? '♪ 曲' : `${isUnlocked(m) ? '' : '🔒'}${STAGES[m - 1].name}`;
     return `<button type="button" data-mode="${m}" aria-pressed="${m === progress.mode}"${isUnlocked(m) ? '' : ' disabled'}>${label}</button>`;
   }).join('');
 };
@@ -835,14 +864,23 @@ const startStage = (mode) => {
   clearTimeout(nextTimer);
   // 答えている途中の問題は数えない
   if (current && state === 'ask') session.asked = Math.max(0, session.asked - 1);
+  const wasSong = progress.mode === 'song';
   progress.mode = isUnlocked(mode) ? mode : progress.cleared + 1;
   persist();
+  exitSong();
+  // 曲と出題では鍵盤の範囲がちがう
+  if (wasSong !== (progress.mode === 'song')) buildKeyboard();
   stageRun = { done: 0, first: 0, time: 0 };
   current = null;
   $('result').hidden = true;
   $('staff').hidden = false;
-  $('skipBtn').hidden = false;
   renderStageBar();
+  if (progress.mode === 'song') {
+    state = 'song';
+    enterSong();
+    return;
+  }
+  $('skipBtn').hidden = false;
   setFeedback('', stageOf().chord ? '和音の音をぜんぶ同時に押さえてください' : noteCount() > 1 ? '楽譜の音を左から順に弾いてください' : '楽譜の音を弾いてください');
   nextQuestion();
   updateStats();
@@ -924,7 +962,7 @@ document.querySelectorAll('#clefSeg button').forEach((b) =>
   b.addEventListener('click', () => { settings.clef = b.dataset.v; onSettingsChanged(); })
 );
 $('rangeSel').addEventListener('change', (e) => { settings.ext = Number(e.target.value); onSettingsChanged(); });
-$('namingSel').addEventListener('change', (e) => { settings.naming = e.target.value; persist(); updateStats(); if (state === 'ask') showName(hintText()); });
+$('namingSel').addEventListener('change', (e) => { settings.naming = e.target.value; persist(); updateStats(); if (state === 'ask') showName(hintText()); if (progress.mode === 'song') songHint(); });
 $('accChk').addEventListener('change', (e) => { settings.acc = e.target.checked; onSettingsChanged(); });
 $('octChk').addEventListener('change', (e) => { settings.oct = e.target.checked; persist(); });
 $('navSel').addEventListener('change', (e) => { settings.nav = e.target.value; persist(); syncKbScroll(); });
@@ -932,11 +970,13 @@ $('hintChk').addEventListener('change', (e) => {
   settings.hint = e.target.checked;
   persist();
   if (state === 'ask') showName(hintText());
+  if (progress.mode === 'song') songHint();
 });
 $('stageBar').addEventListener('click', (e) => {
   const b = e.target instanceof Element ? e.target.closest('button[data-mode]') : null;
   if (!b || b.disabled) return;
-  startStage(b.dataset.mode === 'free' ? 'free' : Number(b.dataset.mode));
+  const v = b.dataset.mode;
+  startStage(v === 'free' || v === 'song' ? v : Number(v));
 });
 $('result').addEventListener('click', (e) => {
   const b = e.target instanceof Element ? e.target.closest('button[data-go]') : null;
@@ -1004,6 +1044,7 @@ const initMidi = async () => {
 
 // ---- 開始 ----
 syncSettingsUI();
+initSongUI();
 buildKeyboard();
 startStage(progress.mode);
 initMidi();

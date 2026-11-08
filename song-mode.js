@@ -1,0 +1,590 @@
+'use strict';
+// ---- 曲の練習 ----
+// index.html の本体より先に読み込む。本体の定数（$, settings, beep など）は関数の中でだけ使う
+
+const SONG_DUR = { w: 4, h: 2, q: 1, 8: 0.5, 16: 0.25 };
+// 小節の長さ（拍）→ 小節いっぱいの音符・休符の書き方
+const BEATS_TO_DUR = [[4, 'w', 0], [3, 'h', 1], [2, 'h', 0], [1.5, 'q', 1], [1, 'q', 0], [0.75, '8', 1], [0.5, '8', 0], [0.25, '16', 0]];
+// 調号でついている変化記号（音名番号 → ♯1 / ♭-1）
+const KEY_ACC = { C: {}, Am: {}, G: { 3: 1 }, D: { 3: 1, 0: 1 }, F: { 6: -1 } };
+const TEMPO_WINDOW = 150; // テンポの判定：このミリ秒以内のずれならちょうど
+const SONG_W = 360;       // 曲の譜面の幅（viewBox）
+
+const HAND_SETS = { rh: ['rh'], lhs: ['lhs'], bothS: ['rh', 'lhs'], lh: ['lh'], both: ['rh', 'lh'] };
+const HAND_LABEL = { rh: '右手', lhs: '左手（簡易）', bothS: '両手（簡易）', lh: '左手', both: '両手' };
+
+const parsePitch = (s) => {
+  const m = /^([a-g])(#|b)?(\d)$/.exec(s);
+  if (!m) throw new Error(`音の書き方が違います: ${s}`);
+  return { step: Number(m[3]) * 7 + LETTERS.indexOf(m[1]), acc: m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0 };
+};
+
+const parseToken = (tok) => {
+  const m = /^(\(([^)]+)\)|r|[a-g][#b]?\d)\/(w|h|q|8|16)(\.?)(~?)$/.exec(tok);
+  if (!m) throw new Error(`音符の書き方が違います: ${tok}`);
+  const rest = m[1] === 'r';
+  const keys = rest ? [] : (m[2] ? m[2].trim().split(/\s+/) : [m[1]]).map(parsePitch).sort((a, b) => a.step - b.step);
+  const dots = m[4] ? 1 : 0;
+  return { keys, rest, dur: m[3], dots, beats: SONG_DUR[m[3]] * (dots ? 1.5 : 1), tie: m[5] === '~' };
+};
+
+const sameKeys = (a, b) => a.length === b.length && a.every((k, i) => k.step === b[i].step && k.acc === b[i].acc);
+
+const compiledSongs = new Map();
+const compileSong = (song) => {
+  if (compiledSongs.has(song.id)) return compiledSongs.get(song.id);
+  const parseHand = (hand, measures) => {
+    let t = 0;
+    const out = [];
+    measures.forEach((ms, measure) => {
+      // 和音 "(c3 e3)/h" は中に空白があるので、かっこごと1つに数える
+      ms.match(/\([^)]*\)\S*|\S+/g).forEach((tok) => {
+        const n = { ...parseToken(tok), hand, measure, t };
+        t += n.beats;
+        out.push(n);
+      });
+    });
+    // タイでつながった後ろの音は弾き直さない
+    out.forEach((n, i) => { n.cont = i > 0 && out[i - 1].tie && !n.rest && sameKeys(out[i - 1].keys, n.keys); });
+    return out;
+  };
+  if (song.rh.length !== song.lh.length) throw new Error(`${song.title}: 右手と左手の小節の数が違います`);
+  const rh = parseHand('rh', song.rh);
+  const lh = parseHand('lh', song.lh);
+  const lenOf = (notes, mi) => notes.filter((n) => n.measure === mi).reduce((a, n) => a + n.beats, 0);
+  const lens = song.rh.map((_, mi) => lenOf(rh, mi));
+  lens.forEach((len, mi) => {
+    if (Math.abs(len - lenOf(lh, mi)) > 1e-6) throw new Error(`${song.title} ${mi + 1}小節目: 右手と左手の長さが違います`);
+  });
+  const starts = lens.map((_, mi) => lens.slice(0, mi).reduce((a, b) => a + b, 0));
+  // 簡易の左手：各小節で最初に鳴る左手の一番低い音を、小節いっぱいのばす
+  const lhs = lens.map((len, measure) => {
+    const first = lh.find((n) => n.measure === measure && !n.rest);
+    const [, dur, dots] = BEATS_TO_DUR.find(([b]) => Math.abs(b - len) < 1e-6) || [len, 'q', 0];
+    return { keys: first ? [first.keys[0]] : [], rest: !first, dur, dots, beats: len, tie: false, cont: false, hand: 'lhs', measure, t: starts[measure] };
+  });
+  const c = { song, rh, lh, lhs, lens, starts };
+  compiledSongs.set(song.id, c);
+  return c;
+};
+
+// 同じ時刻に弾き始める音をまとめて、弾く順番の「イベント」にする
+const buildEvents = (c, hands, [a, b]) => {
+  const map = new Map();
+  HAND_SETS[hands].flatMap((h) => c[h])
+    .filter((n) => n.measure >= a && n.measure < b && !n.rest && !n.cont)
+    .forEach((n) => {
+      const k = n.t.toFixed(4);
+      if (!map.has(k)) map.set(k, { t: n.t, notes: [] });
+      map.get(k).notes.push(n);
+    });
+  return [...map.values()]
+    .sort((x, y) => x.t - y.t)
+    .map((e) => ({ ...e, keys: e.notes.flatMap((n) => n.keys.map((k) => ({ ...k, midi: stepToMidi(k.step, k.acc), note: n }))).sort((x, y) => x.midi - y.midi) }));
+};
+const eventsSig = (evs) => evs.map((e) => `${e.t}:${e.keys.map((k) => k.midi).join(',')}`).join('|');
+
+// 練習のステップ：フレーズごとに 右手→左手（簡易）→両手（簡易）→左手→両手、つなげる、通し、テンポ
+const songStepsCache = new Map();
+const songSteps = (song) => {
+  if (songStepsCache.has(song.id)) return songStepsCache.get(song.id);
+  const c = compileSong(song);
+  const ph = song.phrases;
+  const steps = [];
+  ph.forEach(([a, b], i) => {
+    const seen = new Set();
+    ['rh', 'lhs', 'bothS', 'lh', 'both'].forEach((h) => {
+      // 前のステップと弾く音がまったく同じなら省く（簡易と本来の伴奏が同じ、右手が休みだけ など）
+      const sig = eventsSig(buildEvents(c, h, [a, b]));
+      if (seen.has(sig)) return;
+      seen.add(sig);
+      steps.push({ kind: 'pace', hands: h, range: [a, b], label: `フレーズ${i + 1}：${HAND_LABEL[h]}` });
+    });
+  });
+  for (let i = 0; i < ph.length - 1; i++) {
+    steps.push({ kind: 'pace', hands: 'both', range: [ph[i][0], ph[i + 1][1]], label: `フレーズ${i + 1}と${i + 2}をつなげる` });
+  }
+  const all = [0, song.rh.length];
+  steps.push({ kind: 'pace', hands: 'both', range: all, label: '全曲通し（自分のペース）' });
+  [60, 80, 100].forEach((pct) => steps.push({ kind: 'tempo', pct, hands: 'both', range: all, label: `テンポ${pct}%（メトロノームに合わせる）` }));
+  // 弾く音がないステップ（右手が休みだけのフレーズなど）は省く
+  const out = steps.filter((s) => buildEvents(c, s.hands, s.range).length > 0);
+  songStepsCache.set(song.id, out);
+  return out;
+};
+
+// ---- 記録 ----
+const songById = (id) => SONGS.find((s) => s.id === id) || SONGS[0];
+const currentSong = () => songById(progress.song && progress.song.id);
+const songRecord = (id) => {
+  if (!progress.songs) progress.songs = {};
+  if (!progress.songs[id]) progress.songs[id] = { done: [] };
+  return progress.songs[id];
+};
+const isStepDone = (song, i) => songRecord(song.id).done.includes(i);
+const isStepUnlocked = (song, i) => i === 0 || isStepDone(song, i - 1) || isStepDone(song, i);
+const firstOpenStep = (song) => {
+  const steps = songSteps(song);
+  const i = steps.findIndex((_, k) => !isStepDone(song, k));
+  return i < 0 ? 0 : i;
+};
+const songKbMidis = () => {
+  const c = compileSong(currentSong());
+  return [...c.rh, ...c.lh].flatMap((n) => n.keys.map((k) => stepToMidi(k.step, k.acc)));
+};
+
+// ---- 状態 ----
+let songRun = null; // { song, c, steps, stepIdx, step, events, evOf, pos, pressed, misses, eventMisses, allowed, state, viewMeasure, tempo }
+let songNodes = []; // 鳴らしている音（止めるときに切り離す）
+let songDemoTimer = 0;
+
+const stopSongAudio = () => {
+  songNodes.forEach((g) => g.disconnect());
+  songNodes = [];
+  clearTimeout(songDemoTimer);
+};
+
+const songClick = (at, accent) => {
+  const { ctx, out } = getAudio();
+  const osc = ctx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.value = accent ? 1600 : 1000;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(accent ? 0.25 : 0.15, at + 0.002);
+  g.gain.exponentialRampToValueAtTime(0.0001, at + 0.04);
+  osc.connect(g).connect(out);
+  osc.start(at);
+  osc.stop(at + 0.05);
+  songNodes.push(g);
+};
+
+// ---- 描画 ----
+const phraseOf = (song, measure) => Math.max(0, song.phrases.findIndex(([a, b]) => measure >= a && measure < b));
+const measureAt = (c, beat) => {
+  let m = 0;
+  c.starts.forEach((s, i) => { if (beat >= s - 1e-6) m = i; });
+  return m;
+};
+
+const noteColor = (n) => {
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const r = songRun;
+  const idx = r.evOf.get(n);
+  if (idx === undefined) return null;
+  if (r.tempo) {
+    const xs = r.tempo.byNote.get(n) || [];
+    if (xs.some((x) => x.miss)) return css('--ng');
+    if (xs.length && xs.every((x) => x.hit)) return css('--ok');
+  } else if (idx < r.pos) {
+    return css('--ok');
+  }
+  return idx === r.pos && r.state === 'play' ? css('--accent') : null;
+};
+
+const renderSong = () => {
+  const el = $('staff');
+  el.innerHTML = '';
+  if (!songRun) return;
+  const { c, step } = songRun;
+  const song = c.song;
+  const [pa, pb] = song.phrases[phraseOf(song, songRun.viewMeasure)];
+  const a = Math.max(pa, step.range[0]);
+  const b = Math.min(pb, step.range[1]);
+  const shown = HAND_SETS[step.hands];
+  const upper = shown.includes('rh') ? 'rh' : null;
+  const lower = shown.find((h) => h !== 'rh') || null;
+  const both = upper && lower;
+  // 譜表の位置：上に加線3本ぶん、2段のあいだに加線の余白
+  const SYS_H = both ? 240 : 115;
+  const systems = [];
+  for (let m = a; m < b; m += 2) systems.push([...Array(Math.min(2, b - m)).keys()].map((k) => m + k));
+  const H = systems.length * SYS_H;
+  const renderer = new VF.Renderer(el, VF.Renderer.Backends.SVG);
+  renderer.resize(SONG_W, H);
+  const ctx = renderer.getContext();
+  const keyAcc = KEY_ACC[song.key] || {};
+
+  const ticksFor = (hand, measure, clef, sn) => {
+    const notes = c[hand].filter((n) => n.measure === measure);
+    const state = new Map(); // 小節の中でついた臨時記号
+    return notes.map((n) => {
+      const keys = n.rest ? [clef === 'treble' ? 'b/4' : 'd/3'] : n.keys.map((k) => vfKey(k.step, k.acc));
+      const t = new VF.StaveNote({ clef, keys, duration: `${n.dur}${n.dots ? 'd' : ''}${n.rest ? 'r' : ''}` });
+      if (n.dots) VF.Dot.buildAndAttach([t], { all: true });
+      const color = n.rest ? null : noteColor(n);
+      n.keys.forEach((k, i) => {
+        const id = `${k.step}`;
+        const cur = state.has(id) ? state.get(id) : keyAcc[k.step % 7] || 0;
+        if (k.acc !== cur && !n.cont) {
+          const acc = new VF.Accidental(k.acc === 1 ? '#' : k.acc === -1 ? 'b' : 'n');
+          if (color) acc.setStyle({ fillStyle: color, strokeStyle: color });
+          t.addModifier(acc, i);
+        }
+        state.set(id, k.acc);
+      });
+      if (color) {
+        t.setStyle({ fillStyle: color, strokeStyle: color });
+        t.setLedgerLineStyle({ fillStyle: color, strokeStyle: color });
+      }
+      sn.set(n, t);
+      return t;
+    });
+  };
+
+  systems.forEach((ms, si) => {
+    const y = si * SYS_H;
+    const firstOfPage = si === 0;
+    const decorate = (stave, clef, isFirst) => {
+      if (!isFirst) return stave;
+      stave.addClef(clef).addKeySignature(song.key);
+      if (firstOfPage) stave.addTimeSignature(song.time);
+      return stave;
+    };
+    // 1小節目は音部記号などのぶん広くする
+    const probe = decorate(new VF.Stave(0, 0, 200), upper ? 'treble' : 'bass', true);
+    const extra = probe.getNoteStartX() - probe.getX();
+    const inner = (SONG_W - 12 - extra) / ms.length;
+    let x = 4;
+    const sn = new Map(); // 音符データ → 描いた音符（タイ用）
+    ms.forEach((measure, k) => {
+      const w = inner + (k === 0 ? extra : 0);
+      const staves = [];
+      if (upper) staves.push({ hand: upper, clef: 'treble', stave: decorate(new VF.Stave(x, y, w), 'treble', k === 0) });
+      if (lower) staves.push({ hand: lower, clef: 'bass', stave: decorate(new VF.Stave(x, y + (both ? 110 : 0), w), 'bass', k === 0) });
+      // 上下の段で音符の書き始めをそろえる
+      const sx = Math.max(...staves.map((s) => s.stave.getNoteStartX()));
+      staves.forEach((s) => { s.stave.setNoteStartX(sx); s.stave.setContext(ctx).draw(); });
+      if (both && k === 0) {
+        new VF.StaveConnector(staves[0].stave, staves[1].stave).setType('brace').setContext(ctx).draw();
+        new VF.StaveConnector(staves[0].stave, staves[1].stave).setType('singleLeft').setContext(ctx).draw();
+      }
+      if (both) new VF.StaveConnector(staves[0].stave, staves[1].stave).setType('singleRight').setContext(ctx).draw();
+      const voices = staves.map((s) => {
+        const ticks = ticksFor(s.hand, measure, s.clef, sn);
+        const voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
+        voice.addTickables(ticks);
+        const beams = VF.Beam.generateBeams(ticks, { groups: VF.Beam.getDefaultBeamGroups(song.time) });
+        return { ...s, voice, beams };
+      });
+      const fmt = new VF.Formatter();
+      voices.forEach(({ voice }) => fmt.joinVoices([voice]));
+      fmt.format(voices.map((v) => v.voice), Math.max(40, voices[0].stave.getNoteEndX() - sx - 12));
+      voices.forEach(({ voice, stave, beams }) => {
+        voice.draw(ctx, stave);
+        beams.forEach((bm) => bm.setContext(ctx).draw());
+      });
+      x += w;
+    });
+    // タイ（段をまたぐときは、段の端までと段の頭からに分けて描く）
+    [upper, lower].filter(Boolean).forEach((hand) => {
+      const ns = c[hand];
+      ns.forEach((n, i) => {
+        const next = ns[i + 1];
+        if (!n.tie || !next || !next.cont || (!sn.has(n) && !sn.has(next))) return;
+        const idx = n.keys.map((_, j) => j);
+        new VF.StaveTie({ first_note: sn.get(n) || null, last_note: sn.get(next) || null, first_indices: idx, last_indices: idx }).setContext(ctx).draw();
+      });
+    });
+  });
+
+  const svg = el.querySelector('svg');
+  svg.setAttribute('viewBox', `0 0 ${SONG_W} ${H}`);
+  svg.removeAttribute('width');
+  svg.removeAttribute('height');
+  svg.style.width = '100%';
+  svg.style.height = 'auto';
+};
+
+// ---- 画面の表示 ----
+const updateSongInfo = () => {
+  const r = songRun;
+  if (!r) return;
+  if (r.tempo) {
+    const T = r.tempo;
+    $('stageInfo').innerHTML =
+      `${r.step.label}　♩=${Math.round(T.bpm)}<br>ちょうど <b>${T.hits}</b> / ${T.expected.length}音（${T.need}音以上でクリア）　ずれ・ちがう音 <b>${T.misses + T.wrong}</b>`;
+    return;
+  }
+  if (r.step.kind === 'tempo') {
+    const bpm = Math.round((r.song.tempo * r.step.pct) / 100);
+    $('stageInfo').innerHTML = `${r.step.label}　♩=${bpm}<br>音の${Math.round(TEMPO_WINDOW / 10) / 100}秒以内のずれまでを「ちょうど」とし、9割でクリア`;
+    return;
+  }
+  $('stageInfo').innerHTML =
+    `${r.step.label}　<b>${Math.min(r.pos, r.events.length)} / ${r.events.length}</b>　ミス <b>${r.misses}</b>（${r.allowed}回まででクリア）`;
+};
+
+const songHint = () => {
+  const r = songRun;
+  if (!r || r.tempo || r.pos >= r.events.length) return;
+  showName(settings.hint || r.eventMisses >= 2 ? namesOf(r.events[r.pos].keys) : '');
+};
+
+const syncSongSelects = () => {
+  const song = currentSong();
+  $('songSel').innerHTML = SONGS.map((s) => {
+    const n = songSteps(s).length;
+    const done = songRecord(s.id).done.filter((i) => i < n).length;
+    return `<option value="${s.id}">${s.title}（${s.composer}）${done ? `　${done}/${n}` : ''}</option>`;
+  }).join('');
+  $('songSel').value = song.id;
+  $('stepSel').innerHTML = songSteps(song).map((s, i) => {
+    const mark = isStepDone(song, i) ? '✓ ' : isStepUnlocked(song, i) ? '' : '🔒 ';
+    return `<option value="${i}"${isStepUnlocked(song, i) ? '' : ' disabled'}>${i + 1}. ${mark}${s.label}</option>`;
+  }).join('');
+  $('stepSel').value = String(songRun ? songRun.stepIdx : 0);
+  $('songCredit').textContent = `${song.composer}　${song.credit}`;
+};
+
+// ---- ステップの開始・終了 ----
+const startSongStep = (idx) => {
+  stopSongAudio();
+  const song = currentSong();
+  const steps = songSteps(song);
+  const stepIdx = Math.min(Math.max(0, idx), steps.length - 1);
+  const step = steps[stepIdx];
+  const c = compileSong(song);
+  const events = buildEvents(c, step.hands, step.range);
+  const evOf = new Map();
+  events.forEach((e, i) => e.notes.forEach((n) => evOf.set(n, i)));
+  const onePhrase = song.phrases.some(([a, b]) => a === step.range[0] && b === step.range[1]);
+  songRun = {
+    song, c, steps, stepIdx, step, events, evOf,
+    pos: 0, pressed: new Set(), misses: 0, eventMisses: 0,
+    allowed: onePhrase ? 2 : Math.max(2, Math.ceil(events.length * 0.05)),
+    state: step.kind === 'tempo' ? 'ready' : 'play',
+    viewMeasure: events[0].notes[0].measure,
+    tempo: null,
+  };
+  progress.song = { id: song.id, step: stepIdx };
+  persist();
+  $('result').hidden = true;
+  $('staff').hidden = false;
+  $('startBtn').hidden = step.kind !== 'tempo';
+  $('startBtn').textContent = 'スタート';
+  clearHints();
+  showName('');
+  setFeedback('', step.kind === 'tempo'
+    ? '「スタート」を押すと、1小節ぶんカウントしてから始まります'
+    : '楽譜の音を順に弾いてください（同時に鳴らす音は、全部押せば次へ進みます）');
+  renderSong();
+  updateSongInfo();
+  syncSongSelects();
+  songHint();
+  showKey(events[0].keys[events[0].keys.length - 1].midi);
+};
+
+const finishSongStep = (clear, detail) => {
+  const r = songRun;
+  r.state = 'result';
+  stopSongAudio();
+  clearHints();
+  showName('');
+  setFeedback('', '');
+  if (clear && !isStepDone(r.song, r.stepIdx)) songRecord(r.song.id).done.push(r.stepIdx);
+  persist();
+  const last = r.stepIdx === r.steps.length - 1;
+  const next = r.steps[r.stepIdx + 1];
+  const el = $('result');
+  el.className = 'result ' + (clear ? 'clear' : 'fail');
+  el.innerHTML =
+    `<h2>${clear ? (last ? 'この曲をマスターしました！' : 'クリア！') : 'もう一度'}</h2>` +
+    `<p>${r.step.label}</p><p>${detail}</p>` +
+    '<div class="controls">' +
+    (clear && !last ? `<button type="button" data-step="${r.stepIdx + 1}">次へ（${next.label}）</button>` : '') +
+    `<button type="button" class="${clear && !last ? 'ghost' : ''}" data-step="${r.stepIdx}">もう一度</button>` +
+    '</div>';
+  el.hidden = false;
+  $('staff').hidden = true;
+  $('startBtn').hidden = true;
+  syncSongSelects();
+};
+
+// ---- 自分のペースで弾く ----
+const paceNoteOn = (midi) => {
+  const r = songRun;
+  const ev = r.events[r.pos];
+  if (!ev.keys.some((k) => matches(midi, k))) {
+    r.misses++;
+    r.eventMisses++;
+    flashKey(midi, 'ng');
+    const sp = midiToSpelling(midi, ev.keys.some((k) => k.acc === -1));
+    setFeedback('ng', `× 弾いた音は ${noteLabel(sp.step, sp.acc, settings.naming)}`);
+    if (r.eventMisses >= 2) {
+      ev.keys.forEach((k) => flashKey(k.midi, 'hint', 0));
+      showKey(ev.keys[0].midi);
+    }
+    songHint();
+    updateSongInfo();
+    return;
+  }
+  r.pressed.add(midi);
+  flashKey(midi, 'ok');
+  if (!ev.keys.every((k) => [...r.pressed].some((m) => matches(m, k)))) return;
+  // このイベントの音を全部弾けた
+  r.pos++;
+  r.pressed.clear();
+  r.eventMisses = 0;
+  clearHints();
+  setFeedback('', '');
+  if (r.pos >= r.events.length) {
+    renderSong();
+    const clear = r.misses <= r.allowed;
+    finishSongStep(clear, `ミス <b>${r.misses}</b>回（${r.allowed}回まで）${clear ? '<span class="pass">○ 達成</span>' : '<span class="miss">× あと少し</span>'}`);
+    return;
+  }
+  const nx = r.events[r.pos];
+  r.viewMeasure = nx.notes[0].measure;
+  renderSong();
+  updateSongInfo();
+  songHint();
+  showKey(nx.keys[nx.keys.length - 1].midi);
+};
+
+// ---- テンポに合わせて弾く ----
+const startTempo = () => {
+  const r = songRun;
+  if (!r || r.step.kind !== 'tempo') return;
+  stopSongAudio();
+  const { c, song } = r;
+  const { ctx } = getAudio();
+  if (ctx.state === 'suspended') ctx.resume();
+  const bpm = (song.tempo * r.step.pct) / 100;
+  const spb = 60 / bpm;
+  const clickBeat = song.click || 1;
+  const down = c.starts[song.pickup ? 1 : 0]; // 最初の強拍
+  const mLen = c.lens[song.pickup ? 1 : 0];
+  const first = down - mLen;                  // カウントは1小節前から
+  const lastT = r.events[r.events.length - 1].t;
+  const lead = 0.3; // 秒
+  const audio0 = ctx.currentTime + lead - first * spb; // 拍0の時刻
+  const perf0 = performance.now() + (lead - first * spb) * 1000;
+  for (let b = first; b <= lastT + 1e-6; b += clickBeat) {
+    const rel = (((b - down) % mLen) + mLen) % mLen;
+    songClick(audio0 + b * spb, rel < 1e-6 || mLen - rel < 1e-6);
+  }
+  const expected = r.events.flatMap((e) => e.keys.map((k) => ({ ...k, at: perf0 + e.t * spb * 1000, hit: false, miss: false })));
+  const byNote = new Map();
+  expected.forEach((x) => { if (!byNote.has(x.note)) byNote.set(x.note, []); byNote.get(x.note).push(x); });
+  r.tempo = {
+    bpm, spb, perf0, expected, byNote, hits: 0, misses: 0, wrong: 0,
+    need: Math.ceil(expected.length * 0.9),
+    endAt: perf0 + (lastT + 1) * spb * 1000, sig: '',
+  };
+  r.pos = 0;
+  r.state = 'play';
+  $('startBtn').hidden = true;
+  setFeedback('', 'カウントのあとに弾き始めてください');
+  requestAnimationFrame(tempoTick);
+};
+
+const tempoTick = () => {
+  const r = songRun;
+  if (!r || !r.tempo || r.state !== 'play') return;
+  const T = r.tempo;
+  const now = performance.now();
+  T.expected.forEach((x) => {
+    if (!x.hit && !x.miss && now > x.at + TEMPO_WINDOW) { x.miss = true; T.misses++; }
+  });
+  const ms = T.spb * 1000;
+  const cur = r.events.findIndex((e) => T.perf0 + e.t * ms + TEMPO_WINDOW >= now);
+  r.pos = cur < 0 ? r.events.length : cur;
+  // 1拍先を見て、次のフレーズに切り替える
+  const beat = (now - T.perf0) / ms;
+  r.viewMeasure = Math.min(Math.max(measureAt(r.c, beat + 1), r.step.range[0]), r.step.range[1] - 1);
+  const sig = `${phraseOf(r.song, r.viewMeasure)}|${r.pos}|${T.hits}|${T.misses}|${T.wrong}`;
+  if (sig !== T.sig) {
+    T.sig = sig;
+    renderSong();
+    updateSongInfo();
+  }
+  if (now < T.endAt) {
+    requestAnimationFrame(tempoTick);
+    return;
+  }
+  const clear = T.hits >= T.need;
+  finishSongStep(clear,
+    `ちょうど <b>${T.hits}</b> / ${T.expected.length}音（${T.need}音以上）${clear ? '<span class="pass">○ 達成</span>' : '<span class="miss">× あと少し</span>'}` +
+    `<br>ずれた・弾かなかった ${T.misses}音、ちがう音 ${T.wrong}回`);
+};
+
+const tempoNoteOn = (midi) => {
+  const r = songRun;
+  const T = r.tempo;
+  if (!T) return;
+  const now = performance.now();
+  let best = null;
+  T.expected.forEach((x) => {
+    if (x.hit || x.miss || !matches(midi, x) || Math.abs(now - x.at) > TEMPO_WINDOW) return;
+    if (!best || Math.abs(now - x.at) < Math.abs(now - best.at)) best = x;
+  });
+  if (best) {
+    best.hit = true;
+    T.hits++;
+    flashKey(midi, 'ok');
+    setFeedback('ok', '○ ちょうど');
+  } else {
+    T.wrong++;
+    flashKey(midi, 'ng');
+    setFeedback('ng', '× ずれ・ちがう音');
+  }
+};
+
+const songNoteOn = (midi) => {
+  const r = songRun;
+  if (!r || r.state !== 'play') return;
+  if (r.step.kind === 'tempo') tempoNoteOn(midi);
+  else paceNoteOn(midi);
+};
+
+// ---- お手本 ----
+const playSongDemo = () => {
+  const r = songRun;
+  if (!r) return;
+  if (r.tempo && r.state === 'play') return; // テンポの練習中は鳴らさない
+  stopSongAudio();
+  const { ctx } = getAudio();
+  if (ctx.state === 'suspended') ctx.resume();
+  const pct = r.step.kind === 'tempo' ? r.step.pct : 80;
+  const spb = 60 / ((r.song.tempo * pct) / 100);
+  const t0 = r.events[0].t;
+  const base = ctx.currentTime + 0.2;
+  r.events.forEach((e) => e.keys.forEach((k) => {
+    const g = beep(k.midi, base + (e.t - t0) * spb);
+    if (g) songNodes.push(g);
+  }));
+};
+
+// ---- 曲モードに入る・出る ----
+const enterSong = () => {
+  $('songPanel').hidden = false;
+  $('skipBtn').hidden = true;
+  const song = currentSong();
+  const saved = progress.song && progress.song.id === song.id ? progress.song.step : null;
+  if (!progress.song) progress.song = { id: song.id, step: 0 };
+  startSongStep(saved !== null && isStepUnlocked(song, saved) ? saved : firstOpenStep(song));
+};
+
+const exitSong = () => {
+  stopSongAudio();
+  songRun = null;
+  $('songPanel').hidden = true;
+  $('startBtn').hidden = true;
+};
+
+const initSongUI = () => {
+  $('songSel').addEventListener('change', (e) => {
+    progress.song = { id: e.target.value, step: 0 };
+    buildKeyboard();
+    startSongStep(firstOpenStep(currentSong()));
+  });
+  $('stepSel').addEventListener('change', (e) => startSongStep(Number(e.target.value)));
+  $('startBtn').addEventListener('click', startTempo);
+  $('demoBtn').addEventListener('click', playSongDemo);
+  $('retryBtn').addEventListener('click', () => { if (songRun) startSongStep(songRun.stepIdx); });
+  $('result').addEventListener('click', (e) => {
+    const b = e.target instanceof Element ? e.target.closest('button[data-step]') : null;
+    if (b) startSongStep(Number(b.dataset.step));
+  });
+};
