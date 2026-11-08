@@ -143,6 +143,16 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 .acct-code { font-family: ui-monospace, Consolas, monospace; font-size: 1.2rem; letter-spacing: .05em; padding: 8px; background: var(--accent-soft); border-radius: 8px; text-align: center; }
 .cta { display: grid; gap: 6px; justify-items: center; margin-top: 8px; padding: 10px; border: 1px dashed var(--accent); border-radius: 10px; }
 .kb-note { font-size: .8rem; color: var(--muted); text-align: center; }
+.kb-note b { color: var(--ink); }
+/* タッチだけの端末（スマホ・タブレット）では PC キーの説明を出さない */
+@media (hover: none) and (pointer: coarse) { .pc-only { display: none; } }
+.key.pc-range::after { content: ""; position: absolute; left: 3px; right: 3px; bottom: 2px; height: 3px; border-radius: 2px; background: var(--accent); opacity: .45; }
+.intro { padding: 0; }
+.intro summary { cursor: pointer; padding: 12px 16px; font-weight: 700; color: var(--accent); }
+.intro .body { padding: 0 16px 14px; font-size: .92rem; }
+.intro h3 { font-size: .95rem; margin: 12px 0 4px; }
+.intro p, .intro ul { margin: 0 0 6px; }
+.intro ul { padding-left: 1.3em; }
 footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 16px 24px; }
 @media (max-width: 560px) {
   .stats { grid-template-columns: repeat(2, 1fr); }
@@ -157,6 +167,23 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 </header>
 
 <main>
+  <details class="card intro" id="intro">
+    <summary>はじめての方へ（使い方とクリア条件）</summary>
+    <div class="body">
+      <p>楽譜に出た音符を見て、その音の鍵盤を弾く練習です。MIDIピアノ・画面の鍵盤・PCのキーボードのどれでも弾けます。</p>
+      <h3>ステージ</h3>
+      <ul>
+        <li><b>単音〜4音</b>：音符が1〜4個ならびます。左から順に弾きます。音が増えるほど、いま弾く音より先の音を読んでおく力がつきます。</li>
+        <li><b>重音・和音・転回形</b>：縦に重なった音を同時に押さえます（画面の鍵盤・PCキーは順に押せばかまいません）。転回形は、和音のいちばん下の音を1オクターブ上に移した形です。</li>
+        <li><b>♪ 曲・自由練習</b>：いつでも使えます。自由練習は単音が終わりなく出ます。</li>
+      </ul>
+      <h3>クリア条件</h3>
+      <p>1ステージは20問。<b>一発正解が16問以上</b>で、<b>1音あたりの平均が3秒以内</b>（和音のステージは1和音あたり4秒以内）ならクリアで、次のステージが開きます。進み具合はト音記号・ヘ音記号・大譜表で別々です。「オクターブ違いも正解」にしているあいだは、クリアを記録しません。</p>
+      <h3>なぜ効くのか</h3>
+      <p>楽譜を読むのが遅いのは、多くの場合「下から2本目の線だから…ソ」と線を数えて音名を出しているからです。音符の位置を見たら、数えずにすぐ鍵盤の位置が出る状態になるまで、短い問題をたくさんくり返すのがいちばんの近道です。時間の条件があるのはそのためです。まちがえた音や時間がかかった音ほど、多く出題されます。</p>
+    </div>
+  </details>
+
   <section class="card stage" aria-label="出題">
     <div id="stageBar" class="stage-bar" role="group" aria-label="ステージ"></div>
     <div id="songPanel" class="song-panel" hidden>
@@ -184,7 +211,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
     <div class="controls">
       <button id="skipBtn" class="ghost" type="button">答えを見て次へ</button>
     </div>
-    <div class="kb-note">MIDIがないときは、画面の鍵盤をクリックするか、PCのキー（A W S E D F T G Y H U J K＝ド〜ド、Z / X でオクターブを下げる / 上げる）で弾けます。</div>
+    <div class="kb-note">MIDIがないときは、画面の鍵盤を押して弾けます。<span class="pc-only">PCのキー（A W S E D F T G Y H U J K＝ド〜ド、Z / X でオクターブを下げる / 上げる）でも弾けます。いまPCキーで弾ける音は <b id="pcOctLabel">C4〜C5</b>（鍵盤の下に線のあるところ）。</span></div>
   </section>
 
   <section class="card" aria-label="成績">
@@ -339,8 +366,15 @@ const settings = Object.assign(
   stored.settings || {}
 );
 let noteStats = stored.noteStats || {}; // id -> { n, miss, time }
-// mode: ステージ番号か 'free'・'song'。cleared: クリアした一番上のステージ。song/songs: 曲の練習の位置と記録
+// mode: ステージ番号か 'free'・'song'。song/songs: 曲の練習の位置と記録
+// clears: 音部記号ごとにクリアした一番上のステージ { treble, bass, grand }
+// cleared: clears のいちばん大きい値（学習記録 my.habatakijuku.com が数える。古い版はこれ1つだけだった）
 const progress = Object.assign({ mode: 1, cleared: 0 }, stored.progress || {});
+if (!progress.clears || typeof progress.clears !== 'object') {
+  // 古い版の記録は、そのとき選んでいた音部記号のものとして引き継ぐ
+  progress.clears = { [settings.clef]: progress.cleared || 0 };
+}
+const clearedOf = () => progress.clears[settings.clef] || 0;
 const persist = () => saveStore({ settings, noteStats, progress });
 
 // ---- ステージ ----
@@ -358,7 +392,7 @@ const STAGE_Q = 20;      // 1ステージの問題数
 const CLEAR_FIRST = 16;  // 一発正解がこの数以上（80%）
 const CLEAR_SEC = 3;     // 1音あたりの平均時間がこの秒数以内
 const CHORD_SEC = 4;     // 和音は1和音あたりの平均時間がこの秒数以内
-const isUnlocked = (mode) => mode === 'free' || mode === 'song' || mode <= progress.cleared + 1;
+const isUnlocked = (mode) => mode === 'free' || mode === 'song' || mode <= clearedOf() + 1;
 const stageOf = () => (progress.mode === 'free' ? { n: 1, name: '自由練習' } : STAGES[progress.mode - 1]);
 const noteCount = () => stageOf().n;
 // 時間の基準：和音は1問を1単位、それ以外は1音を1単位として数える
@@ -596,6 +630,7 @@ const buildKeyboard = () => {
   }).join('');
   // はみ出すときは真ん中（中央ハ付近）を見せる
   setKbScroll(0.5);
+  fitPcOctave(midis);
 };
 
 // 鍵盤は指で動かさず、下の全体図をドラッグして左右に動かす（スワイプで打鍵してしまうのを防ぐ）
@@ -722,7 +757,7 @@ const nextQuestion = () => {
   const kind = stageOf().chord;
   const chord = kind ? buildChord(kind) : null;
   if (chord) {
-    current = { notes: chord.notes, pos: 0, chord: chord.symbol, down: new Set() };
+    current = { notes: chord.notes, pos: 0, chord: chord.symbol, down: new Set(), missed: new Set() };
   } else {
     // 和音が範囲に入らない設定（譜表の中だけ等）のときも、ここで単音の列にする
     let prev = current ? current.notes[current.notes.length - 1] : null;
@@ -789,9 +824,27 @@ const completeQuestion = (text) => {
 };
 
 // 和音：MIDIは全部の音を同時に押さえたら正解、画面の鍵盤・PCキーは全部押したら正解（離した音は down から消えない）
+// 和音の音ごとの記録。和音にない音を弾いたら、まだ押さえていない和音の音のうち いちばん近い音 を読みまちがえたものとして数える
+const isDown = (q) => [...current.down].some((m) => matches(m, q));
+const chordMiss = (midi) => {
+  const open = current.notes.map((_, i) => i).filter((i) => !isDown(current.notes[i]));
+  if (!open.length) return;
+  const dist = (i) => Math.abs(stepToMidi(current.notes[i].step, current.notes[i].acc) - midi);
+  current.missed.add(open.reduce((a, b) => (dist(b) < dist(a) ? b : a)));
+};
+// 押さえられて、まちがえていない音だけ正解。時間は和音の時間を音の数で割る
+const recordChord = () => {
+  const ms = (performance.now() - shownAt) / current.notes.length;
+  current.notes.forEach((q, i) => {
+    const ok = isDown(q) && !current.missed.has(i);
+    record(q, ok, ok ? ms : 0);
+  });
+};
+
 const chordNoteOn = (midi) => {
   const idx = current.notes.findIndex((q) => matches(midi, q));
   if (idx < 0) {
+    chordMiss(midi);
     misses++;
     session.streak = 0;
     const sp = midiToSpelling(midi, current.notes.some((q) => q.acc === -1));
@@ -810,6 +863,7 @@ const chordNoteOn = (midi) => {
   if (current.notes.every((q) => [...current.down].some((m) => matches(m, q)))) {
     clearHints();
     current.pos = current.notes.length;
+    recordChord();
     completeQuestion(`${namesOf(current.notes)}${current.chord ? `（${current.chord}）` : ''}`);
     return;
   }
@@ -873,7 +927,8 @@ const handleNote = (midi) => {
 
 const skip = () => {
   if (!current || state !== 'ask') return;
-  if (!current.down && noteMisses === 0) record(target(), false, 0);
+  if (current.down) recordChord();
+  else if (noteMisses === 0) record(target(), false, 0);
   session.streak = 0;
   state = 'done';
   finishQuestion(false, performance.now() - shownAt);
@@ -905,7 +960,8 @@ const updateStageInfo = () => {
   const per = units ? `${(stageRun.time / units / 1000).toFixed(1)}秒` : '–';
   $('stageInfo').innerHTML =
     `ステージ${progress.mode}　<b>${stageRun.done} / ${STAGE_Q}</b>問　一発正解 <b>${stageRun.first}</b>　${rule.label} <b>${per}</b>` +
-    `<br>クリア: 一発正解${CLEAR_FIRST}問以上・${rule.label}平均${rule.sec}秒以内`;
+    `<br>クリア: 一発正解${CLEAR_FIRST}問以上・${rule.label}平均${rule.sec}秒以内` +
+    (stageRun.oct ? '<br>オクターブ違いも正解にしているので、クリアは記録しません' : '');
 };
 
 const startStage = (mode) => {
@@ -913,12 +969,12 @@ const startStage = (mode) => {
   // 答えている途中の問題は数えない
   if (current && state === 'ask') session.asked = Math.max(0, session.asked - 1);
   const wasSong = progress.mode === 'song';
-  progress.mode = isUnlocked(mode) ? mode : progress.cleared + 1;
+  progress.mode = isUnlocked(mode) ? mode : clearedOf() + 1;
+  stageRun = { done: 0, first: 0, time: 0, oct: settings.oct };
   persist();
   exitSong();
   // 曲と出題では鍵盤の範囲がちがう
   if (wasSong !== (progress.mode === 'song')) buildKeyboard();
-  stageRun = { done: 0, first: 0, time: 0 };
   current = null;
   $('result').hidden = true;
   $('staff').hidden = false;
@@ -942,19 +998,25 @@ const showResult = () => {
   const okFirst = stageRun.first >= CLEAR_FIRST;
   const okTime = per <= rule.sec;
   const clear = okFirst && okTime;
-  if (clear && progress.cleared < mode) progress.cleared = mode;
+  // オクターブ違いも正解にしたステージは、クリアの記録に入れない
+  const counted = clear && !stageRun.oct;
+  if (counted && clearedOf() < mode) {
+    progress.clears[settings.clef] = mode;
+    progress.cleared = Math.max(progress.cleared || 0, mode);
+  }
   persist();
   const last = mode === STAGES.length;
   const mark = (ok) => (ok ? '<span class="pass">○ 達成</span>' : '<span class="miss">× あと少し</span>');
   const el = $('result');
   el.className = 'result ' + (clear ? 'clear' : 'fail');
   el.innerHTML =
-    `<h2>${clear ? (last ? '全ステージクリア！' : `ステージ${mode} クリア！`) : `ステージ${mode} 失敗…`}</h2>` +
+    `<h2>${!clear ? `ステージ${mode} 失敗…` : !counted ? `ステージ${mode} 条件を達成（練習）` : last ? '全ステージクリア！' : `ステージ${mode} クリア！`}</h2>` +
     `<p>一発正解 <b>${stageRun.first} / ${STAGE_Q}</b>問（${CLEAR_FIRST}問以上）${mark(okFirst)}</p>` +
     `<p>${rule.label}あたり平均 <b>${per.toFixed(1)}秒</b>（${rule.sec}秒以内）${mark(okTime)}</p>` +
     '<div class="controls">' +
-    (clear && !last ? `<button type="button" data-go="${mode + 1}">次のステージへ（${STAGES[mode].name}）</button>` : '') +
-    `<button type="button" class="${clear && !last ? 'ghost' : ''}" data-go="${mode}">もう一度</button>` +
+    (clear && stageRun.oct ? '<p>「オクターブ違いも正解」にしていたので、クリアは記録していません。設定を外してもう一度挑戦すると、次のステージが開きます。</p>' : '') +
+    (counted && !last ? `<button type="button" data-go="${mode + 1}">次のステージへ（${STAGES[mode].name}）</button>` : '') +
+    `<button type="button" class="${counted && !last ? 'ghost' : ''}" data-go="${mode}">もう一度</button>` +
     '</div>';
   el.hidden = false;
   $('staff').hidden = true;
@@ -1012,7 +1074,7 @@ document.querySelectorAll('#clefSeg button').forEach((b) =>
 $('rangeSel').addEventListener('change', (e) => { settings.ext = Number(e.target.value); onSettingsChanged(); });
 $('namingSel').addEventListener('change', (e) => { settings.naming = e.target.value; persist(); updateStats(); if (state === 'ask') showName(hintText()); if (progress.mode === 'song') songHint(); });
 $('accChk').addEventListener('change', (e) => { settings.acc = e.target.checked; onSettingsChanged(); });
-$('octChk').addEventListener('change', (e) => { settings.oct = e.target.checked; persist(); });
+$('octChk').addEventListener('change', (e) => { settings.oct = e.target.checked; onSettingsChanged(); });
 $('navSel').addEventListener('change', (e) => { settings.nav = e.target.value; persist(); syncKbScroll(); });
 $('hintChk').addEventListener('change', (e) => {
   settings.hint = e.target.checked;
@@ -1041,12 +1103,27 @@ $('resetBtn').addEventListener('click', () => {
 // ---- PCキーボード ----
 const PC_KEYS = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12 };
 let pcOctave = 60;
+// PCキーの A が鳴らす C の高さを、出題範囲の真ん中に合わせる（鍵盤の外から始まらないように）
+const fitPcOctave = (midis) => {
+  const mid = (Math.min(...midis) + Math.max(...midis)) / 2;
+  const c = Math.round((mid - 6) / 12) * 12;
+  pcOctave = Math.min(kbRange[1] - 12, Math.max(kbRange[0], c));
+  showPcOctave();
+};
+const showPcOctave = () => {
+  const o = pcOctave / 12 - 1;
+  $('pcOctLabel').textContent = `C${o}〜C${o + 1}`;
+  document.querySelectorAll('#kb .key').forEach((k) => {
+    const m = Number(k.dataset.midi);
+    k.classList.toggle('pc-range', m >= pcOctave && m <= pcOctave + 12);
+  });
+};
 document.addEventListener('keydown', (e) => {
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
   const k = e.key.toLowerCase();
-  if (k === 'z') { pcOctave = Math.max(kbRange[0], pcOctave - 12); return; }
-  if (k === 'x') { pcOctave = Math.min(kbRange[1] - 12, pcOctave + 12); return; }
+  if (k === 'z') { pcOctave = Math.max(kbRange[0], pcOctave - 12); showPcOctave(); return; }
+  if (k === 'x') { pcOctave = Math.min(kbRange[1] - 12, pcOctave + 12); showPcOctave(); return; }
   if (k in PC_KEYS) {
     const m = pcOctave + PC_KEYS[k];
     beep(m);
@@ -1091,6 +1168,7 @@ const initMidi = async () => {
 };
 
 // ---- 開始 ----
+if (!Object.values(progress.clears).some((n) => n > 0) && !Object.keys(noteStats).length) $('intro').open = true;
 syncSettingsUI();
 initSongUI();
 buildKeyboard();
