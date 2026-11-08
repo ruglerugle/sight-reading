@@ -54,7 +54,9 @@ main { max-width: 960px; margin: 0 auto; padding: 0 16px 32px; display: grid; ga
 main > * { min-width: 0; }
 .card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
 .stage { display: grid; gap: 8px; justify-items: center; }
-#staff { width: 100%; max-width: 560px; min-height: 160px; }
+#staff { width: 100%; max-width: 560px; min-height: 160px; position: relative; }
+.song-cursor { position: absolute; width: 3px; margin-left: -1.5px; border-radius: 2px; background: rgba(59, 91, 140, .6); box-shadow: 0 0 8px rgba(59, 91, 140, .5); pointer-events: none; }
+.song-cursor[hidden] { display: none; }
 #staff svg { display: block; width: 100%; height: auto; }
 .feedback { min-height: 2em; font-size: 1.15rem; font-weight: 700; text-align: center; }
 .feedback.ok { color: var(--ok); }
@@ -369,7 +371,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 
 <script src="songs.js?v=3"></script>
 <script src="game.js?v=3"></script>
-<script src="song-mode.js?v=7"></script>
+<script src="song-mode.js?v=8"></script>
 <script src="billing.js?v=3"></script>
 <script>
 'use strict';

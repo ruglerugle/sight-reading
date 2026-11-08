@@ -197,7 +197,7 @@ const noteColor = (n) => {
   if (r.tempo) {
     const xs = r.tempo.byNote.get(n) || [];
     if (xs.some((x) => x.miss)) return css('--ng');
-    if (xs.length && xs.every((x) => x.hit)) return css('--ok');
+    if (xs.length && xs.every((x) => x.hit)) return xs.every((x) => x.perfect) ? '#c98a00' : css('--ok');
   } else if (idx < r.pos) {
     return css('--ok');
   }
@@ -226,6 +226,7 @@ const renderSong = () => {
   renderer.resize(SONG_W, H);
   const ctx = renderer.getContext();
   const keyAcc = KEY_ACC[song.key] || {};
+  const cursorMap = []; // 段ごと { y0, y1, pts: [[拍, x], ...] }
 
   const ticksFor = (hand, measure, clef, sn) => {
     const notes = c[hand].filter((n) => n.measure === measure);
@@ -269,6 +270,7 @@ const renderSong = () => {
     const inner = (SONG_W - 12 - extra) / ms.length;
     let x = 4;
     const sn = new Map(); // 音符データ → 描いた音符（タイ用）
+    const pts = [];
     ms.forEach((measure, k) => {
       const w = inner + (k === 0 ? extra : 0);
       const staves = [];
@@ -296,8 +298,16 @@ const renderSong = () => {
         voice.draw(ctx, stave);
         beams.forEach((bm) => bm.setContext(ctx).draw());
       });
+      // 小節の頭・音符・小節の終わりの位置
+      pts.push([c.starts[measure], sx - 6]);
+      staves.forEach((s) => c[s.hand].forEach((n) => {
+        if (n.measure === measure && sn.has(n)) pts.push([n.t, sn.get(n).getAbsoluteX() + 6]);
+      }));
+      pts.push([c.starts[measure] + c.lens[measure], x + w - 4]);
       x += w;
     });
+    pts.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+    cursorMap.push({ y0: y + 22, y1: y + (both ? 110 : 0) + 98, pts });
     // タイ（段をまたぐときは、段の端までと段の頭からに分けて描く）
     [upper, lower].filter(Boolean).forEach((hand) => {
       const ns = c[hand];
@@ -316,6 +326,37 @@ const renderSong = () => {
   svg.removeAttribute('height');
   svg.style.width = '100%';
   svg.style.height = 'auto';
+  songRun.cursorMap = cursorMap;
+  const cur = document.createElement('div');
+  cur.id = 'songCursor';
+  cur.className = 'song-cursor';
+  cur.hidden = true;
+  el.appendChild(cur);
+};
+
+// テンポ練習：いまの拍の位置に縦線を出す（拍は書かれた楽譜の拍。スウィングのずれは気にしない）
+const placeCursor = (beat) => {
+  const el = document.getElementById('songCursor');
+  const r = songRun;
+  if (!el || !r || !r.cursorMap) return;
+  const sys = r.cursorMap.find((s) => s.pts.length && beat >= s.pts[0][0] - 1e-6 && beat <= s.pts[s.pts.length - 1][0] + 1e-6);
+  if (!sys) {
+    el.hidden = true;
+    return;
+  }
+  const { pts } = sys;
+  let i = pts.findIndex((p) => p[0] > beat);
+  if (i < 0) i = pts.length - 1;
+  if (i === 0) i = 1;
+  const [t0, x0] = pts[i - 1];
+  const [t1, x1] = pts[i];
+  const xv = t1 > t0 ? x0 + ((beat - t0) / (t1 - t0)) * (x1 - x0) : x1;
+  const svg = $('staff').querySelector('svg');
+  const k = svg ? svg.clientWidth / SONG_W : 1;
+  el.hidden = false;
+  el.style.left = `${xv * k}px`;
+  el.style.top = `${sys.y0 * k}px`;
+  el.style.height = `${(sys.y1 - sys.y0) * k}px`;
 };
 
 // ---- 画面の表示 ----
@@ -561,6 +602,7 @@ const tempoTick = () => {
     renderSong();
     updateSongInfo();
   }
+  placeCursor(beat);
   if (now < T.endAt) {
     requestAnimationFrame(tempoTick);
     return;
@@ -589,6 +631,7 @@ const tempoNoteOn = (midi) => {
     const dt = Math.round(now - best.at);
     const perfect = Math.abs(dt) <= TEMPO_PERFECT;
     best.hit = true;
+    best.perfect = perfect;
     T.hits++;
     if (perfect) T.perfect++;
     r.combo++;
