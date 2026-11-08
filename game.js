@@ -138,3 +138,132 @@ const animateResult = (el, stars) => {
     confetti(stars >= 3 ? 180 : 110);
   }
 };
+
+// ---- 毎日の練習（連続日数・今日の練習時間・1日の目標） ----
+// progress.daily = { days: { 'YYYY-MM-DD': 秒 }, goal: 目標の秒, goalDay: 目標を達成した日 }
+const IDLE_MS = 60 * 1000;   // これより長く手が止まったら練習時間に数えない
+const STREAK_MIN_SEC = 60;   // 1日に1分以上弾いたら、その日は練習した日
+const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const daily = () => {
+  if (!progress.daily || typeof progress.daily !== 'object') progress.daily = {};
+  const d = progress.daily;
+  if (!d.days || typeof d.days !== 'object') d.days = {};
+  if (!d.goal) d.goal = 600;
+  return d;
+};
+const todaySec = () => daily().days[dayKey()] || 0;
+// 今日（まだなら昨日）から数えた連続日数
+const streakDays = () => {
+  const days = daily().days;
+  const d = new Date();
+  if ((days[dayKey(d)] || 0) < STREAK_MIN_SEC) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while ((days[dayKey(d)] || 0) >= STREAK_MIN_SEC) {
+    n++;
+    d.setDate(d.getDate() - 1);
+  }
+  return n;
+};
+const totalPracticeSec = () => Object.values(daily().days).reduce((a, b) => a + b, 0);
+
+let lastInputAt = 0;
+let unsavedSec = 0;
+// 音を弾くたびに呼ぶ。前の音から1分以内なら、そのあいだを練習時間に足す
+const practiceTick = () => {
+  const now = Date.now();
+  if (lastInputAt && now - lastInputAt <= IDLE_MS) {
+    const sec = (now - lastInputAt) / 1000;
+    const d = daily();
+    const k = dayKey();
+    const before = d.days[k] || 0;
+    d.days[k] = Math.round((before + sec) * 10) / 10;
+    unsavedSec += sec;
+    if (before < d.goal && d.days[k] >= d.goal && d.goalDay !== k) {
+      d.goalDay = k;
+      toast('🎯 今日の目標を達成しました！');
+      fanfare(1);
+      checkBadges({ goal: true });
+      unsavedSec = 10;
+    }
+    if (before < STREAK_MIN_SEC && d.days[k] >= STREAK_MIN_SEC) checkBadges({});
+    if (unsavedSec >= 10) {
+      unsavedSec = 0;
+      persist();
+      renderDaily();
+    }
+  }
+  lastInputAt = now;
+};
+
+const renderDaily = () => {
+  const el = $('dailyBar');
+  if (!el) return;
+  const d = daily();
+  const streak = streakDays();
+  const todayMin = Math.floor(todaySec() / 60);
+  const goalMin = Math.round(d.goal / 60);
+  const pct = Math.min(100, (todaySec() / d.goal) * 100);
+  const practicedToday = todaySec() >= STREAK_MIN_SEC;
+  el.innerHTML =
+    `<span>🔥 <b>${streak}</b>日連続${streak && !practicedToday ? '（今日はまだ）' : ''}</span>` +
+    `<span>今日 <b>${todayMin}</b>分 / ${goalMin}分 <span class="goal-bar"><i style="width:${pct}%"></i></span>${pct >= 100 ? ' 🎯' : ''}</span>`;
+};
+
+// ---- 通知 ----
+let toastQueue = Promise.resolve();
+const toast = (text) => {
+  toastQueue = toastQueue.then(() => new Promise((done) => {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.setAttribute('role', 'status');
+    el.textContent = text;
+    document.body.appendChild(el);
+    setTimeout(() => { el.remove(); done(); }, 3200);
+  }));
+};
+
+// ---- バッジ ----
+const totalStars = () => Object.values(progress.best || {}).reduce((a, b) => a + (b.stars || 0), 0);
+const BADGES = [
+  { id: 'first-clear', icon: '🎉', name: 'はじめてのクリア', desc: 'ステージか曲のステップを★1以上でクリア', test: (c) => c.clear },
+  { id: 'first-star3', icon: '⭐', name: 'はじめての★3', desc: 'どこかで★3を取る', test: () => Object.values(progress.best || {}).some((b) => b.stars >= 3) },
+  { id: 'combo-20', icon: '🔗', name: 'コンボ20', desc: '20回つづけてまちがえずに弾く', test: (c) => (c.combo || 0) >= 20 },
+  { id: 'combo-50', icon: '⛓️', name: 'コンボ50', desc: '50回つづけてまちがえずに弾く', test: (c) => (c.combo || 0) >= 50 },
+  { id: 'streak-3', icon: '🔥', name: '3日連続', desc: '3日つづけて1分以上練習する', test: () => streakDays() >= 3 },
+  { id: 'streak-7', icon: '📅', name: '7日連続', desc: '7日つづけて1分以上練習する', test: () => streakDays() >= 7 },
+  { id: 'streak-30', icon: '🏅', name: '30日連続', desc: '30日つづけて1分以上練習する', test: () => streakDays() >= 30 },
+  { id: 'goal', icon: '🎯', name: '今日の目標', desc: 'はじめて1日の目標の時間を練習する', test: (c) => c.goal },
+  { id: 'all-stages', icon: '🏆', name: '全ステージ', desc: 'どれかの音部記号で転回形までクリア', test: () => Object.values(progress.clears || {}).some((n) => n >= STAGES.length) },
+  { id: 'stars-50', icon: '✨', name: '★50', desc: '★を合計50個集める', test: () => totalStars() >= 50 },
+  { id: 'stars-150', icon: '🌟', name: '★150', desc: '★を合計150個集める', test: () => totalStars() >= 150 },
+  { id: 'song-step', icon: '🎵', name: 'はじめての曲', desc: '曲のステップをはじめてクリア', test: (c) => c.songClear },
+  { id: 'song-master', icon: '🎼', name: '1曲マスター', desc: '曲の最後のステップ（テンポ100%）までクリア', test: (c) => c.songMaster },
+  { id: 'tempo-star3', icon: '⏱️', name: 'ぴったりの演奏', desc: 'テンポ100%で★3を取る', test: (c) => c.tempo3 },
+  { id: 'practice-60', icon: '⌛', name: '合計60分', desc: '練習時間が合計60分になる', test: () => totalPracticeSec() >= 3600 },
+];
+
+// 新しく取れたバッジを記録して知らせる。c は今の結果（clear・combo・songClear など）
+const checkBadges = (c) => {
+  if (!progress.badges || typeof progress.badges !== 'object') progress.badges = {};
+  const got = BADGES.filter((b) => !progress.badges[b.id] && b.test(c));
+  if (!got.length) return;
+  got.forEach((b) => {
+    progress.badges[b.id] = dayKey();
+    toast(`${b.icon} バッジ獲得：${b.name}`);
+  });
+  persist();
+  renderBadges();
+};
+
+const renderBadges = () => {
+  const el = $('badges');
+  if (!el) return;
+  const have = progress.badges || {};
+  const n = BADGES.filter((b) => have[b.id]).length;
+  el.innerHTML =
+    `<div class="badges-head">バッジ <b>${n}</b> / ${BADGES.length}</div>` +
+    BADGES.map((b) => {
+      const ok = !!have[b.id];
+      return `<div class="badge${ok ? ' got' : ''}" title="${b.desc}${ok ? `（${have[b.id]}）` : ''}"><i>${ok ? b.icon : '？'}</i>${b.name}</div>`;
+    }).join('');
+};

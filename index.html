@@ -174,6 +174,19 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 .score small { color: var(--muted); }
 .score .best { font-style: normal; font-weight: 700; color: #fff; background: var(--ok); border-radius: 999px; padding: 2px 10px; font-size: .85rem; animation: starPop .5s 1s both; }
 .next-star { font-size: .85rem; color: var(--muted); }
+.daily { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; justify-content: center; font-size: .9rem; color: var(--muted); }
+.daily b { color: var(--ink); font-size: 1.05rem; }
+.goal-bar { display: inline-block; vertical-align: middle; width: 90px; height: 8px; margin-left: 4px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.goal-bar i { display: block; height: 100%; background: var(--ok); border-radius: 999px; }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 8px 18px; border-radius: 999px; z-index: 60; font-weight: 700; box-shadow: 0 4px 16px rgba(0,0,0,.2); animation: toastIn 3.2s both; white-space: nowrap; }
+@keyframes toastIn { 0% { opacity: 0; transform: translate(-50%, 20px); } 10%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, 10px); } }
+.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 10px 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.badges-head { grid-column: 1 / -1; font-size: .9rem; color: var(--muted); }
+.badges-head b { color: var(--ink); }
+.badge { text-align: center; font-size: .72rem; line-height: 1.3; color: var(--muted); }
+.badge i { display: block; font-style: normal; font-size: 1.6rem; line-height: 1.4; filter: grayscale(1); opacity: .35; }
+.badge.got { color: var(--ink); }
+.badge.got i { filter: none; opacity: 1; }
 .confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 50; }
 @media (prefers-reduced-motion: reduce) { .judge, .stars span.on, .score .best { animation: none; } }
 .kb-note { font-size: .8rem; color: var(--muted); text-align: center; }
@@ -201,6 +214,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 </header>
 
 <main>
+  <div id="dailyBar" class="daily" aria-live="polite"></div>
   <details class="card intro" id="intro">
     <summary>はじめての方へ（使い方とクリア条件）</summary>
     <div class="body">
@@ -258,6 +272,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
       <div class="stat"><b id="stStreak">0</b><span>連続一発正解</span></div>
     </div>
     <div id="weak" class="weak"></div>
+    <div id="badges" class="badges"></div>
   </section>
 
   <section class="card settings" aria-label="設定">
@@ -299,6 +314,15 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
       <label class="check"><input type="checkbox" id="octChk">オクターブ違いも正解にする</label>
       <label class="check"><input type="checkbox" id="hintChk">はじめから音名を見せる</label>
     </div>
+    <label class="field">
+      <span>1日の目標</span>
+      <select id="goalSel">
+        <option value="300">5分</option>
+        <option value="600">10分</option>
+        <option value="1200">20分</option>
+        <option value="1800">30分</option>
+      </select>
+    </label>
     <div class="field" id="planField" hidden>
       <span>有料版</span>
       <div id="planStatus" class="plan-status"></div>
@@ -344,8 +368,8 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 </dialog>
 
 <script src="songs.js?v=3"></script>
-<script src="game.js?v=2"></script>
-<script src="song-mode.js?v=6"></script>
+<script src="game.js?v=3"></script>
+<script src="song-mode.js?v=7"></script>
 <script src="billing.js?v=3"></script>
 <script>
 'use strict';
@@ -859,6 +883,7 @@ const completeQuestion = (text) => {
   const perUnit = ms / rule.units;
   stageRun.combo = misses === 0 ? stageRun.combo + 1 : 0;
   stageRun.maxCombo = Math.max(stageRun.maxCombo, stageRun.combo);
+  if (stageRun.combo === 20 || stageRun.combo === 50) checkBadges({ combo: stageRun.combo });
   const pts = questionScore(misses === 0, 1 - perUnit / (rule.sec * 1000), stageRun.combo);
   stageRun.score += pts;
   if (misses > 0) popJudge('OK', 'ok', `+${pts}`);
@@ -926,6 +951,7 @@ const noteOff = (midi) => {
 };
 
 const handleNote = (midi) => {
+  practiceTick();
   if (progress.mode === 'song') {
     songNoteOn(midi);
     return;
@@ -1104,6 +1130,7 @@ const showResult = () => {
   clearHints();
   renderStageBar();
   animateResult(el, counted ? stars : 0);
+  if (counted) checkBadges({ clear: stars > 0, combo: stageRun.maxCombo });
 };
 
 const updateStats = () => {
@@ -1137,6 +1164,7 @@ const syncSettingsUI = () => {
   $('octChk').checked = settings.oct;
   $('hintChk').checked = settings.hint;
   $('navSel').value = settings.nav;
+  $('goalSel').value = String(daily().goal);
 };
 
 const onSettingsChanged = () => {
@@ -1154,6 +1182,7 @@ $('rangeSel').addEventListener('change', (e) => { settings.ext = Number(e.target
 $('namingSel').addEventListener('change', (e) => { settings.naming = e.target.value; persist(); updateStats(); if (state === 'ask') showName(hintText()); if (progress.mode === 'song') songHint(); });
 $('accChk').addEventListener('change', (e) => { settings.acc = e.target.checked; onSettingsChanged(); });
 $('octChk').addEventListener('change', (e) => { settings.oct = e.target.checked; onSettingsChanged(); });
+$('goalSel').addEventListener('change', (e) => { daily().goal = Number(e.target.value); persist(); renderDaily(); });
 $('navSel').addEventListener('change', (e) => { settings.nav = e.target.value; persist(); syncKbScroll(); });
 $('hintChk').addEventListener('change', (e) => {
   settings.hint = e.target.checked;
@@ -1253,6 +1282,9 @@ initSongUI();
 buildKeyboard();
 startStage(progress.mode);
 initBilling();
+renderDaily();
+renderBadges();
+setInterval(renderDaily, 30 * 1000);
 initMidi();
 let navDrag = null; // { x: つかんだ位置, scroll: そのときの scrollLeft }
 const navMove = (e) => {

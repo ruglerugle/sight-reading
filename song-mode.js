@@ -442,6 +442,13 @@ const finishSongStep = (stars, lines) => {
   syncSongSelects();
   renderStageBar();
   animateResult(el, stars);
+  checkBadges({
+    clear,
+    songClear: clear,
+    combo: r.maxCombo,
+    songMaster: clear && last && !r.song.locked,
+    tempo3: r.step.kind === 'tempo' && r.step.pct === 100 && stars === 3,
+  });
 };
 
 // ---- 自分のペースで弾く ----
