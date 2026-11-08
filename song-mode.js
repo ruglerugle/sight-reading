@@ -347,7 +347,7 @@ const syncSongSelects = () => {
   ).join('');
   $('songSel').value = song.id;
   $('stepSel').innerHTML = songSteps(song).map((s, i) => {
-    const mark = isStepDone(song, i) ? '✓ ' : isStepUnlocked(song, i) ? '' : '🔒 ';
+    const mark = isStepDone(song, i) ? `${starText(starsOf(songKey(song.id, i)))} ` : isStepUnlocked(song, i) ? '' : '🔒 ';
     return `<option value="${i}"${isStepUnlocked(song, i) ? '' : ' disabled'}>${i + 1}. ${mark}${s.label}</option>`;
   }).join('') + (song.locked
     ? `<option disabled>🔒 ${restPhrases(song)}・つなげる・通し・テンポ（有料版）</option>`
@@ -370,7 +370,7 @@ const startSongStep = (idx) => {
   const onePhrase = song.phrases.some(([a, b]) => a === step.range[0] && b === step.range[1]);
   songRun = {
     song, c, steps, stepIdx, step, events, evOf,
-    pos: 0, pressed: new Set(), misses: 0, eventMisses: 0,
+    pos: 0, pressed: new Set(), misses: 0, eventMisses: 0, score: 0, combo: 0, maxCombo: 0,
     allowed: onePhrase ? 2 : Math.max(2, Math.ceil(events.length * 0.05)),
     state: step.kind === 'tempo' ? 'ready' : 'play',
     viewMeasure: events[0].notes[0].measure,
@@ -394,22 +394,30 @@ const startSongStep = (idx) => {
   showKey(events[0].keys[events[0].keys.length - 1].midi);
 };
 
-const finishSongStep = (clear, detail) => {
+// stars: 0〜3（0 は失敗）、lines: 結果の説明の行
+const finishSongStep = (stars, lines) => {
   const r = songRun;
+  const clear = stars > 0;
   r.state = 'result';
   stopSongAudio();
   clearHints();
   showName('');
   setFeedback('', '');
   if (clear && !isStepDone(r.song, r.stepIdx)) songRecord(r.song.id).done.push(r.stepIdx);
+  const best = saveBest(songKey(r.song.id, r.stepIdx), r.score, stars);
   persist();
   const last = r.stepIdx === r.steps.length - 1;
   const next = r.steps[r.stepIdx + 1];
   const el = $('result');
   el.className = 'result ' + (clear ? 'clear' : 'fail');
   el.innerHTML =
-    `<h2>${clear ? (last ? (r.song.locked ? 'お試しの範囲をクリア！' : 'この曲をマスターしました！') : 'クリア！') : 'もう一度'}</h2>` +
-    `<p>${r.step.label}</p><p>${detail}</p>` +
+    resultHead({
+      title: clear ? (last ? (r.song.locked ? 'お試しの範囲をクリア！' : 'この曲をマスターしました！') : 'クリア！') : 'もう一度',
+      stars,
+      score: r.score,
+      best,
+      lines: [r.step.label, ...lines, `最大コンボ <b>${r.maxCombo}</b>`],
+    }) +
     '<div class="controls">' +
     (clear && !last ? `<button type="button" data-step="${r.stepIdx + 1}">次へ（${next.label}）</button>` : '') +
     `<button type="button" class="${clear && !last ? 'ghost' : ''}" data-step="${r.stepIdx}">もう一度</button>` +
@@ -423,6 +431,7 @@ const finishSongStep = (clear, detail) => {
   $('staff').hidden = true;
   $('startBtn').hidden = true;
   syncSongSelects();
+  animateResult(el, stars);
 };
 
 // ---- 自分のペースで弾く ----
@@ -446,7 +455,14 @@ const paceNoteOn = (midi) => {
   r.pressed.add(midi);
   flashKey(midi, 'ok');
   if (!ev.keys.every((k) => [...r.pressed].some((m) => matches(m, k)))) return;
-  // このイベントの音を全部弾けた
+  // このイベントの音を全部弾けた（自分のペースなので速さの点はなく、まちがえずに続けるとコンボ）
+  const first = r.eventMisses === 0;
+  r.combo = first ? r.combo + 1 : 0;
+  r.maxCombo = Math.max(r.maxCombo, r.combo);
+  const pts = questionScore(first, 0, r.combo);
+  r.score += pts;
+  if (first) popJudge('Good', 'good', comboText(pts, r.combo));
+  else popJudge('OK', 'ok', `+${pts}`);
   r.pos++;
   r.pressed.clear();
   r.eventMisses = 0;
@@ -454,8 +470,11 @@ const paceNoteOn = (midi) => {
   setFeedback('', '');
   if (r.pos >= r.events.length) {
     renderSong();
-    const clear = r.misses <= r.allowed;
-    finishSongStep(clear, `ミス <b>${r.misses}</b>回（${r.allowed}回まで）${clear ? '<span class="pass">○ 達成</span>' : '<span class="miss">× あと少し</span>'}`);
+    const stars = paceStars(r.misses, r.allowed);
+    finishSongStep(stars, [
+      `ミス <b>${r.misses}</b>回（${r.allowed}回まで）${stars ? '<span class="pass">○ 達成</span>' : '<span class="miss">× あと少し</span>'}`,
+      stars && stars < 3 ? `<span class="next-star">${stars === 1 ? '★2まで：ミス1回以内' : '★3まで：ノーミス'}</span>` : '',
+    ]);
     return;
   }
   const nx = r.events[r.pos];
@@ -492,7 +511,7 @@ const startTempo = () => {
   const byNote = new Map();
   expected.forEach((x) => { if (!byNote.has(x.note)) byNote.set(x.note, []); byNote.get(x.note).push(x); });
   r.tempo = {
-    bpm, spb, perf0, expected, byNote, hits: 0, misses: 0, wrong: 0,
+    bpm, spb, perf0, expected, byNote, hits: 0, perfect: 0, misses: 0, wrong: 0,
     need: Math.ceil(expected.length * 0.9),
     endAt: perf0 + (lastT + 1) * spb * 1000, sig: '',
   };
@@ -511,7 +530,7 @@ const tempoTick = () => {
   const T = r.tempo;
   const now = performance.now();
   T.expected.forEach((x) => {
-    if (!x.hit && !x.miss && now > x.at + TEMPO_WINDOW) { x.miss = true; T.misses++; }
+    if (!x.hit && !x.miss && now > x.at + TEMPO_WINDOW) { x.miss = true; T.misses++; r.combo = 0; }
   });
   const ms = T.spb * 1000;
   const cur = r.events.findIndex((e) => T.perf0 + playBeat(r.song, e.t) * ms + TEMPO_WINDOW >= now);
@@ -529,10 +548,13 @@ const tempoTick = () => {
     requestAnimationFrame(tempoTick);
     return;
   }
-  const clear = T.hits >= T.need;
-  finishSongStep(clear,
-    `ちょうど <b>${T.hits}</b> / ${T.expected.length}音（${T.need}音以上）${clear ? '<span class="pass">○ 達成</span>' : '<span class="miss">× あと少し</span>'}` +
-    `<br>ずれた・弾かなかった ${T.misses}音、ちがう音 ${T.wrong}回`);
+  const stars = tempoStars(T.hits, T.expected.length);
+  const total = T.expected.length;
+  finishSongStep(stars, [
+    `ちょうど <b>${T.hits}</b> / ${total}音（${T.need}音以上）${stars ? '<span class="pass">○ 達成</span>' : '<span class="miss">× あと少し</span>'}`,
+    `Perfect ${T.perfect}音・Good ${T.hits - T.perfect}音、ずれた・弾かなかった ${T.misses}音、ちがう音 ${T.wrong}回`,
+    stars && stars < 3 ? `<span class="next-star">${stars === 1 ? `★2まで：${Math.ceil(total * 0.95)}音以上ちょうど` : '★3まで：全部の音をちょうど'}</span>` : '',
+  ]);
 };
 
 const tempoNoteOn = (midi) => {
@@ -546,13 +568,25 @@ const tempoNoteOn = (midi) => {
     if (!best || Math.abs(now - x.at) < Math.abs(now - best.at)) best = x;
   });
   if (best) {
+    // ずれが ±50ms 以内なら Perfect（100点）、±150ms 以内なら Good（60点）。続けるとコンボ
+    const dt = Math.round(now - best.at);
+    const perfect = Math.abs(dt) <= TEMPO_PERFECT;
     best.hit = true;
     T.hits++;
+    if (perfect) T.perfect++;
+    r.combo++;
+    r.maxCombo = Math.max(r.maxCombo, r.combo);
+    const pts = (perfect ? 100 : 60) + Math.min(50, Math.max(0, r.combo - 1) * 5);
+    r.score += pts;
     flashKey(midi, 'ok');
-    setFeedback('ok', '○ ちょうど');
+    const lag = dt === 0 ? 'ぴったり' : `${dt < 0 ? '早い' : '遅い'} ${Math.abs(dt)}ms`;
+    popJudge(perfect ? 'Perfect' : 'Good', perfect ? 'perfect' : 'good', `${lag}　${comboText(pts, r.combo)}`);
+    setFeedback('ok', `○ ${lag}`);
   } else {
     T.wrong++;
+    r.combo = 0;
     flashKey(midi, 'ng');
+    popJudge('Miss', 'miss');
     setFeedback('ng', '× ずれ・ちがう音');
   }
 };

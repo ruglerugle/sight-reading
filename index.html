@@ -142,6 +142,32 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 .acct-error { color: var(--ng); font-size: .9rem; }
 .acct-code { font-family: ui-monospace, Consolas, monospace; font-size: 1.2rem; letter-spacing: .05em; padding: 8px; background: var(--accent-soft); border-radius: 8px; text-align: center; }
 .cta { display: grid; gap: 6px; justify-items: center; margin-top: 8px; padding: 10px; border: 1px dashed var(--accent); border-radius: 10px; }
+.stage { position: relative; }
+#judgeLayer { position: absolute; left: 0; right: 0; top: 34%; display: grid; justify-items: center; pointer-events: none; z-index: 5; }
+.judge { text-align: center; animation: judgeUp .9s ease-out forwards; text-shadow: 0 1px 0 #fff, 0 0 8px #fff; }
+.judge b { display: block; font-size: 1.5rem; letter-spacing: .04em; }
+.judge span { display: block; font-size: .9rem; font-weight: 700; color: var(--muted); }
+.judge.perfect b { color: #c98a00; font-size: 1.8rem; }
+.judge.good b { color: var(--ok); }
+.judge.ok b { color: var(--accent); }
+.judge.miss b { color: var(--ng); }
+@keyframes judgeUp {
+  0% { opacity: 0; transform: translateY(12px) scale(.8); }
+  15% { opacity: 1; transform: translateY(0) scale(1.12); }
+  30% { transform: scale(1); }
+  100% { opacity: 0; transform: translateY(-34px); }
+}
+.stars { font-size: 2.6rem; line-height: 1; letter-spacing: .1em; }
+.stars span { color: #e2d9ca; display: inline-block; }
+.stars span.on { color: #f2b705; animation: starPop .45s var(--d) both; }
+@keyframes starPop { 0% { transform: scale(0) rotate(-40deg); opacity: 0; } 70% { transform: scale(1.35); opacity: 1; } 100% { transform: scale(1); } }
+.score { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.score b { font-size: 2.2rem; font-variant-numeric: tabular-nums; }
+.score small { color: var(--muted); }
+.score .best { font-style: normal; font-weight: 700; color: #fff; background: var(--ok); border-radius: 999px; padding: 2px 10px; font-size: .85rem; animation: starPop .5s 1s both; }
+.next-star { font-size: .85rem; color: var(--muted); }
+.confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 50; }
+@media (prefers-reduced-motion: reduce) { .judge, .stars span.on, .score .best { animation: none; } }
 .kb-note { font-size: .8rem; color: var(--muted); text-align: center; }
 .kb-note b { color: var(--ink); }
 /* タッチだけの端末（スマホ・タブレット）では PC キーの説明を出さない */
@@ -197,6 +223,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
       <div id="songCredit" class="song-credit"></div>
     </div>
     <div id="stageInfo" class="stage-info" aria-live="polite"></div>
+    <div id="judgeLayer" aria-hidden="true"></div>
     <div id="result" class="result" aria-live="polite" hidden></div>
     <div id="staff" role="img" aria-label="出題された音符"></div>
     <div class="kb-wrap" aria-label="画面の鍵盤"><div id="kb" class="kb"></div></div>
@@ -308,7 +335,8 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 </dialog>
 
 <script src="songs.js?v=3"></script>
-<script src="song-mode.js?v=4"></script>
+<script src="game.js?v=1"></script>
+<script src="song-mode.js?v=5"></script>
 <script src="billing.js?v=2"></script>
 <script>
 'use strict';
@@ -491,7 +519,7 @@ let misses = 0;       // この問題で間違えた回数
 let noteMisses = 0;   // いま弾く音で間違えた回数
 let nextTimer = 0;
 const session = { correct: 0, firstTry: 0, asked: 0, time: 0, streak: 0 };
-let stageRun = { done: 0, first: 0, time: 0 }; // ステージ中の成績（time は解答時間の合計）
+let stageRun = { done: 0, first: 0, time: 0, score: 0, combo: 0, maxCombo: 0 }; // ステージ中の成績（time は解答時間の合計）
 
 const target = () => current.notes[current.pos];
 const namesOf = (notes) => notes.map((q) => noteLabel(q.step, q.acc, settings.naming)).join('　');
@@ -817,6 +845,17 @@ const completeQuestion = (text) => {
     session.streak = 0;
   }
   finishQuestion(misses === 0, ms);
+  // 点数：一発正解なら 基本100点＋速さ（最大50点）＋コンボ（最大50点）、まちがえてから正解は30点
+  const rule = timeRule();
+  const perUnit = ms / rule.units;
+  stageRun.combo = misses === 0 ? stageRun.combo + 1 : 0;
+  stageRun.maxCombo = Math.max(stageRun.maxCombo, stageRun.combo);
+  const pts = questionScore(misses === 0, 1 - perUnit / (rule.sec * 1000), stageRun.combo);
+  stageRun.score += pts;
+  if (misses > 0) popJudge('OK', 'ok', `+${pts}`);
+  else if (perUnit <= rule.sec * 1000 * PERFECT_RATIO) popJudge('Perfect', 'perfect', comboText(pts, stageRun.combo));
+  else popJudge('Good', 'good', comboText(pts, stageRun.combo));
+  updateStageInfo();
   render(getComputedStyle(document.documentElement).getPropertyValue('--ok').trim());
   setFeedback('ok', `○ ${text} <span class="sub">${(ms / 1000).toFixed(2)}秒</span>`);
   updateStats();
@@ -931,6 +970,8 @@ const skip = () => {
   else if (noteMisses === 0) record(target(), false, 0);
   session.streak = 0;
   state = 'done';
+  stageRun.combo = 0;
+  popJudge('Miss', 'miss');
   finishQuestion(false, performance.now() - shownAt);
   const rest = current.down ? current.notes : [target()];
   showKey(stepToMidi(rest[0].step, rest[0].acc));
@@ -960,7 +1001,9 @@ const updateStageInfo = () => {
   const per = units ? `${(stageRun.time / units / 1000).toFixed(1)}秒` : '–';
   $('stageInfo').innerHTML =
     `ステージ${progress.mode}　<b>${stageRun.done} / ${STAGE_Q}</b>問　一発正解 <b>${stageRun.first}</b>　${rule.label} <b>${per}</b>` +
-    `<br>クリア: 一発正解${CLEAR_FIRST}問以上・${rule.label}平均${rule.sec}秒以内` +
+    `<br>得点 <b>${stageRun.score}</b>${stageRun.combo >= 2 ? `　<b>${stageRun.combo}</b>コンボ` : ''}` +
+    `${starsOf(stageKey(progress.mode)) ? `　自己ベスト ${starText(starsOf(stageKey(progress.mode)))} ${bestOf(stageKey(progress.mode)).score}点` : ''}` +
+    `<br>クリア（★1）: 一発正解${CLEAR_FIRST}問以上・${rule.label}平均${rule.sec}秒以内` +
     (stageRun.oct ? '<br>オクターブ違いも正解にしているので、クリアは記録しません' : '');
 };
 
@@ -970,7 +1013,7 @@ const startStage = (mode) => {
   if (current && state === 'ask') session.asked = Math.max(0, session.asked - 1);
   const wasSong = progress.mode === 'song';
   progress.mode = isUnlocked(mode) ? mode : clearedOf() + 1;
-  stageRun = { done: 0, first: 0, time: 0, oct: settings.oct };
+  stageRun = { done: 0, first: 0, time: 0, oct: settings.oct, score: 0, combo: 0, maxCombo: 0 };
   persist();
   exitSong();
   // 曲と出題では鍵盤の範囲がちがう
@@ -1004,15 +1047,27 @@ const showResult = () => {
     progress.clears[settings.clef] = mode;
     progress.cleared = Math.max(progress.cleared || 0, mode);
   }
+  // ★と自己ベスト（オクターブ違いも正解にしたときは記録しない）
+  const stars = stageStars({ clear, first: stageRun.first, per, sec: rule.sec });
+  const best = counted ? saveBest(stageKey(mode), stageRun.score, stars) : { prev: bestOf(stageKey(mode)), newBest: false };
   persist();
   const last = mode === STAGES.length;
   const mark = (ok) => (ok ? '<span class="pass">○ 達成</span>' : '<span class="miss">× あと少し</span>');
   const el = $('result');
   el.className = 'result ' + (clear ? 'clear' : 'fail');
   el.innerHTML =
-    `<h2>${!clear ? `ステージ${mode} 失敗…` : !counted ? `ステージ${mode} 条件を達成（練習）` : last ? '全ステージクリア！' : `ステージ${mode} クリア！`}</h2>` +
-    `<p>一発正解 <b>${stageRun.first} / ${STAGE_Q}</b>問（${CLEAR_FIRST}問以上）${mark(okFirst)}</p>` +
-    `<p>${rule.label}あたり平均 <b>${per.toFixed(1)}秒</b>（${rule.sec}秒以内）${mark(okTime)}</p>` +
+    resultHead({
+      title: !clear ? `ステージ${mode} 失敗…` : !counted ? `ステージ${mode} 条件を達成（練習）` : last ? '全ステージクリア！' : `ステージ${mode} クリア！`,
+      stars: counted ? stars : 0,
+      score: stageRun.score,
+      best,
+      lines: [
+        `一発正解 <b>${stageRun.first} / ${STAGE_Q}</b>問（${CLEAR_FIRST}問以上）${mark(okFirst)}`,
+        `${rule.label}あたり平均 <b>${per.toFixed(1)}秒</b>（${rule.sec}秒以内）${mark(okTime)}`,
+        `最大コンボ <b>${stageRun.maxCombo}</b>`,
+        counted ? `<span class="next-star">${stageNextStar(stars, rule.sec, rule.label)}</span>` : '',
+      ],
+    }) +
     '<div class="controls">' +
     (clear && stageRun.oct ? '<p>「オクターブ違いも正解」にしていたので、クリアは記録していません。設定を外してもう一度挑戦すると、次のステージが開きます。</p>' : '') +
     (counted && !last ? `<button type="button" data-go="${mode + 1}">次のステージへ（${STAGES[mode].name}）</button>` : '') +
@@ -1025,6 +1080,7 @@ const showResult = () => {
   setFeedback('', '');
   clearHints();
   renderStageBar();
+  animateResult(el, counted ? stars : 0);
 };
 
 const updateStats = () => {
