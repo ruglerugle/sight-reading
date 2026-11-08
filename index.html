@@ -110,10 +110,18 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 .key.ok { background: var(--ok) !important; }
 .key.ng { background: var(--ng) !important; }
 .key.hint { background: var(--hint) !important; }
-.stage-bar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-.stage-bar button { padding: 3px 12px; font-size: .9rem; background: transparent; color: var(--accent); }
-.stage-bar button[aria-pressed="true"] { background: var(--accent); color: #fff; }
-.stage-bar button:disabled { border-color: var(--line); color: var(--muted); cursor: not-allowed; }
+.star-total { font-size: .9rem; color: var(--muted); text-align: center; }
+.star-total b { color: #c98a00; font-size: 1.2rem; }
+.stage-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); gap: 5px; width: 100%; max-width: 720px; }
+.stage-card { display: grid; gap: 0; padding: 6px 4px; border-radius: 12px; background: var(--paper); color: var(--ink); border: 1px solid var(--line); line-height: 1.35; }
+.stage-card:hover:not(:disabled) { border-color: var(--accent); }
+.stage-card.on { border: 2px solid var(--accent); background: var(--accent-soft); padding: 5px 3px; }
+.stage-card:disabled { opacity: .5; cursor: not-allowed; }
+.sc-name, .sc-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-name { font-weight: 700; font-size: .88rem; }
+.sc-name small { color: var(--muted); font-weight: 500; margin-right: 3px; }
+.sc-sub { font-size: .8rem; color: #c98a00; letter-spacing: .04em; }
+.sc-sub.plain { color: var(--muted); letter-spacing: 0; }
 .stage-info { font-size: .9rem; color: var(--muted); text-align: center; }
 .stage-info b { color: var(--ink); }
 .result { display: grid; gap: 6px; justify-items: center; text-align: center; padding: 12px 0 4px; }
@@ -211,6 +219,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
   </details>
 
   <section class="card stage" aria-label="出題">
+    <div id="starTotal" class="star-total"></div>
     <div id="stageBar" class="stage-bar" role="group" aria-label="ステージ"></div>
     <div id="songPanel" class="song-panel" hidden>
       <label>曲 <select id="songSel"></select></label>
@@ -335,9 +344,9 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 </dialog>
 
 <script src="songs.js?v=3"></script>
-<script src="game.js?v=1"></script>
-<script src="song-mode.js?v=5"></script>
-<script src="billing.js?v=2"></script>
+<script src="game.js?v=2"></script>
+<script src="song-mode.js?v=6"></script>
+<script src="billing.js?v=3"></script>
 <script>
 'use strict';
 const VF = Vex.Flow;
@@ -983,12 +992,26 @@ const skip = () => {
 };
 
 // ---- ステージの進行 ----
+// ステージの地図：カードに名前と自己ベストの★。上に★の合計
+const CLEF_NAME = { treble: 'ト音記号', bass: 'ヘ音記号', grand: '大譜表' };
 const renderStageBar = () => {
   const modes = [...STAGES.map((_, i) => i + 1), 'song', 'free'];
+  const stageGot = STAGES.reduce((a, _, i) => a + starsOf(stageKey(i + 1)), 0);
+  const stageMax = STAGES.length * 3;
+  const song = songStarTotals();
   $('stageBar').innerHTML = modes.map((m) => {
-    const label = m === 'free' ? '自由練習' : m === 'song' ? '♪ 曲' : `${isUnlocked(m) ? '' : '🔒'}${STAGES[m - 1].name}`;
-    return `<button type="button" data-mode="${m}" aria-pressed="${m === progress.mode}"${isUnlocked(m) ? '' : ' disabled'}>${label}</button>`;
+    const on = m === progress.mode;
+    const locked = !isUnlocked(m);
+    const card = (name, sub, plain) =>
+      `<button type="button" class="stage-card${on ? ' on' : ''}" data-mode="${m}" aria-pressed="${on}"${locked ? ' disabled' : ''}>` +
+      `<span class="sc-name">${name}</span><span class="sc-sub${plain ? ' plain' : ''}">${sub}</span></button>`;
+    if (m === 'free') return card('自由練習', '単音 ∞', true);
+    if (m === 'song') return card('♪ 曲', `★${song.got}/${song.max}`);
+    return card(`<small>${m}</small>${STAGES[m - 1].name}`, locked ? '🔒' : starText(starsOf(stageKey(m))), locked);
   }).join('');
+  $('starTotal').innerHTML =
+    `★ <b>${stageGot + song.got}</b> / ${stageMax + song.max}　` +
+    `<small>ステージ ${stageGot}/${stageMax}（${CLEF_NAME[settings.clef]}）・曲 ${song.got}/${song.max}</small>`;
 };
 
 const updateStageInfo = () => {

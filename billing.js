@@ -91,6 +91,7 @@ const loadFullSongs = async () => {
   SONGS.splice(0, SONGS.length, ...songs);
   compiledSongs.clear();
   songStepsCache.clear();
+  renderStageBar();
   if (progress.mode === 'song') {
     buildKeyboard();
     startSongStep(songRun ? songRun.stepIdx : firstOpenStep(currentSong()));

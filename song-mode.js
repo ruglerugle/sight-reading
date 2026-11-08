@@ -128,6 +128,14 @@ const songSteps = (song) => {
 // 有料の続きのフレーズの書き方（「フレーズ2」「フレーズ2〜4」）
 const restPhrases = (song) => (song.fullPhrases > 2 ? `フレーズ2〜${song.fullPhrases}` : 'フレーズ2');
 
+// 曲の★の合計（いま使えるステップだけを数える）
+const songStarTotals = () => SONGS.reduce((acc, s) => {
+  const n = songSteps(s).length;
+  for (let i = 0; i < n; i++) acc.got += starsOf(songKey(s.id, i));
+  acc.max += n * 3;
+  return acc;
+}, { got: 0, max: 0 });
+
 const songById = (id) => SONGS.find((s) => s.id === id) || SONGS[0];
 const currentSong = () => songById(progress.song && progress.song.id);
 const songRecord = (id) => {
@@ -339,8 +347,9 @@ const syncSongSelects = () => {
   const song = currentSong();
   const option = (s) => {
     const n = songSteps(s).length;
-    const done = songRecord(s.id).done.filter((i) => i < n).length;
-    return `<option value="${s.id}">${s.title}（${s.composer}）${s.locked ? '　お試し' : ''}${done ? `　${done}/${n}` : ''}</option>`;
+    let got = 0;
+    for (let i = 0; i < n; i++) got += starsOf(songKey(s.id, i));
+    return `<option value="${s.id}">${s.title}（${s.composer}）${s.locked ? '　お試し' : ''}${got ? `　★${got}/${n * 3}` : ''}</option>`;
   };
   $('songSel').innerHTML = SONG_GENRES.map(([genre, label]) =>
     `<optgroup label="${label}">${SONGS.filter((s) => (s.genre || 'classic') === genre).map(option).join('')}</optgroup>`
@@ -431,6 +440,7 @@ const finishSongStep = (stars, lines) => {
   $('staff').hidden = true;
   $('startBtn').hidden = true;
   syncSongSelects();
+  renderStageBar();
   animateResult(el, stars);
 };
 
