@@ -129,6 +129,17 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 .song-panel label { display: flex; gap: 6px; align-items: center; font-size: .9rem; color: var(--muted); width: min(100%, 460px); white-space: nowrap; }
 .song-panel select { flex: 1; min-width: 0; }
 .song-credit { font-size: .8rem; color: var(--muted); text-align: center; }
+.plan-status { font-size: .9rem; }
+.plan-btns { justify-content: flex-start; }
+.acct-dlg { max-width: min(92vw, 420px); border: 1px solid var(--line); border-radius: 14px; padding: 20px; background: var(--paper); color: var(--ink); }
+.acct-dlg::backdrop { background: rgba(43, 38, 32, .45); }
+.acct-dlg h2 { margin: 0 0 8px; font-size: 1.1rem; }
+.acct-dlg p { margin: 0 0 10px; font-size: .9rem; }
+.acct-dlg input { font: inherit; width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px; }
+.acct-dlg .link { background: none; border: 0; color: var(--accent); padding: 0; text-decoration: underline; }
+.acct-error { color: var(--ng); font-size: .9rem; }
+.acct-code { font-family: ui-monospace, Consolas, monospace; font-size: 1.2rem; letter-spacing: .05em; padding: 8px; background: var(--accent-soft); border-radius: 8px; text-align: center; }
+.cta { display: grid; gap: 6px; justify-items: center; margin-top: 8px; padding: 10px; border: 1px dashed var(--accent); border-radius: 10px; }
 .kb-note { font-size: .8rem; color: var(--muted); text-align: center; }
 footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 16px 24px; }
 @media (max-width: 560px) {
@@ -223,6 +234,11 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
       <label class="check"><input type="checkbox" id="octChk">オクターブ違いも正解にする</label>
       <label class="check"><input type="checkbox" id="hintChk">はじめから音名を見せる</label>
     </div>
+    <div class="field" id="planField" hidden>
+      <span>有料版</span>
+      <div id="planStatus" class="plan-status"></div>
+      <div id="planBtns" class="controls plan-btns"></div>
+    </div>
     <div class="field">
       <span>記録</span>
       <button id="resetBtn" class="ghost" type="button">苦手の記録を消す</button>
@@ -233,8 +249,37 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 
 <footer>MIDI入力は Chrome / Edge で使えます（Safari は非対応）。</footer>
 
+<dialog id="acctDlg" class="acct-dlg" aria-labelledby="acctTitle">
+  <h2 id="acctTitle">読譜トレーナー 有料版</h2>
+  <p id="acctMsg"></p>
+  <div data-view="register">
+    <p>表示名（ニックネーム）を決めて、この端末にパスキーを作ります。</p>
+    <input id="acctName" maxlength="30" placeholder="ニックネーム" autocomplete="nickname">
+    <div class="controls"><button id="acctRegisterBtn" type="button">パスキーを作って続ける</button></div>
+    <p>前に作った方は <button type="button" class="link" data-goto="login">パスキーでログイン</button></p>
+  </div>
+  <div data-view="login" hidden>
+    <p>この端末（または同じアカウントの端末）に保存したパスキーでログインします。</p>
+    <div class="controls"><button id="acctLoginBtn" type="button">パスキーでログイン</button></div>
+    <p>パスキーをなくした方は <button type="button" class="link" data-goto="recover">復旧コードを使う</button>／初めての方は <button type="button" class="link" data-goto="register">パスキーを作る</button></p>
+  </div>
+  <div data-view="recover" hidden>
+    <p>登録したときにメモした復旧コードを入れてください。</p>
+    <input id="acctCode" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off">
+    <div class="controls"><button id="acctRecoverBtn" type="button">復旧コードでログイン</button></div>
+  </div>
+  <div data-view="recovery" hidden>
+    <p>パスキーをなくしたときに使う<strong>復旧コード</strong>です。この画面にしか出ないので、メモして大切に保管してください。</p>
+    <p id="acctRecovery" class="acct-code"></p>
+    <div class="controls"><button id="acctRecoveryDone" type="button">メモしました</button></div>
+  </div>
+  <p id="acctError" class="acct-error" hidden></p>
+  <div class="controls"><button id="acctClose" type="button" class="ghost">閉じる</button></div>
+</dialog>
+
 <script src="songs.js?v=2"></script>
-<script src="song-mode.js?v=2"></script>
+<script src="song-mode.js?v=3"></script>
+<script src="billing.js?v=1"></script>
 <script>
 'use strict';
 const VF = Vex.Flow;
@@ -1047,6 +1092,7 @@ syncSettingsUI();
 initSongUI();
 buildKeyboard();
 startStage(progress.mode);
+initBilling();
 initMidi();
 let navDrag = null; // { x: つかんだ位置, scroll: そのときの scrollLeft }
 const navMove = (e) => {

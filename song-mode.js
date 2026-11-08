@@ -109,12 +109,15 @@ const songSteps = (song) => {
       steps.push({ kind: 'pace', hands: h, range: [a, b], label: `フレーズ${i + 1}：${HAND_LABEL[h]}` });
     });
   });
-  for (let i = 0; i < ph.length - 1; i++) {
-    steps.push({ kind: 'pace', hands: 'both', range: [ph[i][0], ph[i + 1][1]], label: `フレーズ${i + 1}と${i + 2}をつなげる` });
+  // お試しの曲（有料版の前）は最初のフレーズだけ。つなげる・通し・テンポは完全版で
+  if (!song.locked) {
+    for (let i = 0; i < ph.length - 1; i++) {
+      steps.push({ kind: 'pace', hands: 'both', range: [ph[i][0], ph[i + 1][1]], label: `フレーズ${i + 1}と${i + 2}をつなげる` });
+    }
+    const all = [0, song.rh.length];
+    steps.push({ kind: 'pace', hands: 'both', range: all, label: '全曲通し（自分のペース）' });
+    [60, 80, 100].forEach((pct) => steps.push({ kind: 'tempo', pct, hands: 'both', range: all, label: `テンポ${pct}%（メトロノームに合わせる）` }));
   }
-  const all = [0, song.rh.length];
-  steps.push({ kind: 'pace', hands: 'both', range: all, label: '全曲通し（自分のペース）' });
-  [60, 80, 100].forEach((pct) => steps.push({ kind: 'tempo', pct, hands: 'both', range: all, label: `テンポ${pct}%（メトロノームに合わせる）` }));
   // 弾く音がないステップ（右手が休みだけのフレーズなど）は省く
   const out = steps.filter((s) => buildEvents(c, s.hands, s.range).length > 0);
   songStepsCache.set(song.id, out);
@@ -334,7 +337,7 @@ const syncSongSelects = () => {
   const option = (s) => {
     const n = songSteps(s).length;
     const done = songRecord(s.id).done.filter((i) => i < n).length;
-    return `<option value="${s.id}">${s.title}（${s.composer}）${done ? `　${done}/${n}` : ''}</option>`;
+    return `<option value="${s.id}">${s.title}（${s.composer}）${s.locked ? '　お試し' : ''}${done ? `　${done}/${n}` : ''}</option>`;
   };
   $('songSel').innerHTML = SONG_GENRES.map(([genre, label]) =>
     `<optgroup label="${label}">${SONGS.filter((s) => (s.genre || 'classic') === genre).map(option).join('')}</optgroup>`
@@ -343,7 +346,9 @@ const syncSongSelects = () => {
   $('stepSel').innerHTML = songSteps(song).map((s, i) => {
     const mark = isStepDone(song, i) ? '✓ ' : isStepUnlocked(song, i) ? '' : '🔒 ';
     return `<option value="${i}"${isStepUnlocked(song, i) ? '' : ' disabled'}>${i + 1}. ${mark}${s.label}</option>`;
-  }).join('');
+  }).join('') + (song.locked
+    ? `<option disabled>🔒 フレーズ2〜${song.fullPhrases}・つなげる・通し・テンポ（有料版）</option>`
+    : '');
   $('stepSel').value = String(songRun ? songRun.stepIdx : 0);
   $('songCredit').textContent = `${song.composer}　${song.credit}`;
 };
@@ -400,12 +405,17 @@ const finishSongStep = (clear, detail) => {
   const el = $('result');
   el.className = 'result ' + (clear ? 'clear' : 'fail');
   el.innerHTML =
-    `<h2>${clear ? (last ? 'この曲をマスターしました！' : 'クリア！') : 'もう一度'}</h2>` +
+    `<h2>${clear ? (last ? (r.song.locked ? 'お試しの範囲をクリア！' : 'この曲をマスターしました！') : 'クリア！') : 'もう一度'}</h2>` +
     `<p>${r.step.label}</p><p>${detail}</p>` +
     '<div class="controls">' +
     (clear && !last ? `<button type="button" data-step="${r.stepIdx + 1}">次へ（${next.label}）</button>` : '') +
     `<button type="button" class="${clear && !last ? 'ghost' : ''}" data-step="${r.stepIdx}">もう一度</button>` +
-    '</div>';
+    '</div>' +
+    (clear && last && r.song.locked && BILLING_ON
+      ? '<div class="cta"><b>お試しはここまで</b>' +
+        `<span>このあと：フレーズ2〜${r.song.fullPhrases}、つなげる、全曲通し、テンポ60〜100%</span>` +
+        `<button type="button" data-plan-cta="buy">有料版にする（${PRICE_LABEL}）</button></div>`
+      : '');
   el.hidden = false;
   $('staff').hidden = true;
   $('startBtn').hidden = true;
@@ -599,5 +609,6 @@ const initSongUI = () => {
   $('result').addEventListener('click', (e) => {
     const b = e.target instanceof Element ? e.target.closest('button[data-step]') : null;
     if (b) startSongStep(Number(b.dataset.step));
+    if (e.target instanceof Element && e.target.closest('button[data-plan-cta]')) buyPlan();
   });
 };
