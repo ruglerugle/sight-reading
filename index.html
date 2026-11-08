@@ -131,6 +131,8 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 .song-credit { font-size: .8rem; color: var(--muted); text-align: center; }
 .plan-status { font-size: .9rem; }
 .plan-btns { justify-content: flex-start; }
+.plan-legal { font-size: .8rem; color: var(--muted); }
+.plan-legal a, footer a { color: var(--accent); }
 .acct-dlg { max-width: min(92vw, 420px); border: 1px solid var(--line); border-radius: 14px; padding: 20px; background: var(--paper); color: var(--ink); }
 .acct-dlg::backdrop { background: rgba(43, 38, 32, .45); }
 .acct-dlg h2 { margin: 0 0 8px; font-size: 1.1rem; }
@@ -238,6 +240,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
       <span>有料版</span>
       <div id="planStatus" class="plan-status"></div>
       <div id="planBtns" class="controls plan-btns"></div>
+      <div class="plan-legal">申し込むと<a href="https://habatakijuku.com/legal/terms.html" target="_blank" rel="noopener">利用規約</a>に同意したものとみなします。<a href="https://habatakijuku.com/legal/tokushoho.html" target="_blank" rel="noopener">特定商取引法に基づく表記</a>・<a href="https://habatakijuku.com/legal/privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a></div>
     </div>
     <div class="field">
       <span>記録</span>
@@ -247,7 +250,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 
 </main>
 
-<footer>MIDI入力は Chrome / Edge で使えます（Safari は非対応）。</footer>
+<footer>MIDI入力は Chrome / Edge で使えます（Safari は非対応）。<br><a href="https://habatakijuku.com/">羽ばたき塾</a>・<a href="https://habatakijuku.com/legal/tokushoho.html">特定商取引法に基づく表記</a>・<a href="https://habatakijuku.com/legal/terms.html">利用規約</a>・<a href="https://habatakijuku.com/legal/privacy.html">プライバシーポリシー</a></footer>
 
 <dialog id="acctDlg" class="acct-dlg" aria-labelledby="acctTitle">
   <h2 id="acctTitle">読譜トレーナー 有料版</h2>
