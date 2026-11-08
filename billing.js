@@ -2,8 +2,8 @@
 // ---- 有料版（月額480円）：パスキーの会員・Stripe の支払い・完全版の楽譜 ----
 // サーバーは piano-billing（このサイトの /api/*）。index.html の本体より先に読み込み、本体の定数は関数の中でだけ使う
 
-// 公開までは手元（localhost）か ?billing=1 のときだけ有料版の案内を出す
-const BILLING_ON = location.hostname === 'localhost' || new URLSearchParams(location.search).has('billing');
+// 有料版の案内を出すか（2026-11-08 公開）。止めるときは false にする
+const BILLING_ON = true;
 const PRICE_LABEL = '月480円';
 
 let account = { signedIn: false, paid: false, name: '', customer: false, periodEnd: 0, cancelAtEnd: false };

@@ -125,6 +125,9 @@ const songSteps = (song) => {
 };
 
 // ---- 記録 ----
+// 有料の続きのフレーズの書き方（「フレーズ2」「フレーズ2〜4」）
+const restPhrases = (song) => (song.fullPhrases > 2 ? `フレーズ2〜${song.fullPhrases}` : 'フレーズ2');
+
 const songById = (id) => SONGS.find((s) => s.id === id) || SONGS[0];
 const currentSong = () => songById(progress.song && progress.song.id);
 const songRecord = (id) => {
@@ -347,7 +350,7 @@ const syncSongSelects = () => {
     const mark = isStepDone(song, i) ? '✓ ' : isStepUnlocked(song, i) ? '' : '🔒 ';
     return `<option value="${i}"${isStepUnlocked(song, i) ? '' : ' disabled'}>${i + 1}. ${mark}${s.label}</option>`;
   }).join('') + (song.locked
-    ? `<option disabled>🔒 フレーズ2〜${song.fullPhrases}・つなげる・通し・テンポ（有料版）</option>`
+    ? `<option disabled>🔒 ${restPhrases(song)}・つなげる・通し・テンポ（有料版）</option>`
     : '');
   $('stepSel').value = String(songRun ? songRun.stepIdx : 0);
   $('songCredit').textContent = `${song.composer}　${song.credit}`;
@@ -413,7 +416,7 @@ const finishSongStep = (clear, detail) => {
     '</div>' +
     (clear && last && r.song.locked && BILLING_ON
       ? '<div class="cta"><b>お試しはここまで</b>' +
-        `<span>このあと：フレーズ2〜${r.song.fullPhrases}、つなげる、全曲通し、テンポ60〜100%</span>` +
+        `<span>このあと：${restPhrases(r.song)}、つなげる、全曲通し、テンポ60〜100%</span>` +
         `<button type="button" data-plan-cta="buy">有料版にする（${PRICE_LABEL}）</button></div>`
       : '');
   el.hidden = false;
