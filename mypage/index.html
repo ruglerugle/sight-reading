@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>マイページ ― 読譜トレーナー</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cellipse cx='12' cy='23' rx='7' ry='5' fill='%233b5b8c'/%3E%3Crect x='17' y='4' width='3' height='19' fill='%233b5b8c'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4efe6; --paper: #fffdf8; --ink: #2b2620; --muted: #7a6f62; --line: #e2d9ca;
+  --accent: #3b5b8c; --accent-soft: #e3eaf5; --ok: #2e8b57; --ng: #c8433a; --gold: #c98a00;
+  /* 練習時間の濃さ（緑ひと色の明るい→暗い） */
+  --heat0: #ebe4d6; --heat1: #c6e2cd; --heat2: #8fc9a1; --heat3: #4fa673; --heat4: #2e7d50;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif; line-height: 1.6; }
+header, main, footer { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+header { padding-top: 18px; padding-bottom: 8px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+h1 { font-size: 1.4rem; margin: 0; letter-spacing: .04em; }
+h1 small { font-size: .9rem; color: var(--muted); font-weight: 500; margin-left: 6px; }
+a { color: var(--accent); }
+.back { font-weight: 700; text-decoration: none; border: 1px solid var(--accent); border-radius: 999px; padding: 3px 14px; background: var(--paper); }
+main { display: grid; gap: 14px; padding-bottom: 32px; }
+main > * { min-width: 0; }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.card h2 { font-size: 1.05rem; margin: 0 0 10px; }
+.muted { color: var(--muted); font-size: .9rem; }
+.account { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: .92rem; }
+.pill { display: inline-block; border-radius: 999px; padding: 1px 10px; font-size: .82rem; font-weight: 700; }
+.pill.on { background: #dcefe3; color: var(--ok); }
+.pill.off { background: #eee6d8; color: var(--muted); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.tile { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.tile .v { font-size: 1.8rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.tile .v small { font-size: .9rem; color: var(--muted); font-weight: 500; margin-left: 2px; }
+.tile .k { font-size: .82rem; color: var(--muted); }
+/* 練習カレンダー：列が週、行が曜日 */
+.cal-wrap { overflow-x: auto; }
+.cal { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 14px); grid-auto-columns: 14px; gap: 3px; width: max-content; }
+.cal i { display: block; width: 14px; height: 14px; border-radius: 3px; background: var(--heat0); }
+.cal i[data-l="1"] { background: var(--heat1); } .cal i[data-l="2"] { background: var(--heat2); }
+.cal i[data-l="3"] { background: var(--heat3); } .cal i[data-l="4"] { background: var(--heat4); }
+.cal i.today { outline: 2px solid var(--ink); outline-offset: 1px; }
+.cal i.future { visibility: hidden; }
+.scale { display: flex; gap: 3px; align-items: center; font-size: .78rem; color: var(--muted); margin-top: 6px; }
+.scale i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+/* 30日の練習時間 */
+.bars { position: relative; display: grid; grid-template-columns: repeat(30, 1fr); gap: 2px; align-items: end; height: 140px; border-bottom: 1px solid var(--line); }
+.bars .b { position: relative; height: 100%; display: flex; align-items: flex-end; }
+.bars .b span { display: block; width: 100%; background: var(--heat3); border-radius: 4px 4px 0 0; min-height: 0; }
+.bars .b.met span { background: var(--heat4); }
+.bars .b:hover span { filter: brightness(1.15); }
+.goal-line { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--muted); pointer-events: none; }
+.goal-line em { position: absolute; right: 0; top: -1.3em; font-style: normal; font-size: .72rem; color: var(--muted); background: var(--paper); padding: 0 3px; }
+.axis { display: flex; justify-content: space-between; font-size: .72rem; color: var(--muted); margin-top: 2px; }
+.tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: #fff; font-size: .8rem; padding: 3px 8px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, -120%); }
+.tip[hidden] { display: none; }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { text-align: center; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 500; font-size: .82rem; }
+td.name { text-align: left; font-weight: 700; white-space: nowrap; }
+.st { color: var(--gold); letter-spacing: .03em; white-space: nowrap; }
+.st.none { color: var(--line); }
+.sc { display: block; font-size: .75rem; color: var(--muted); }
+.songs { display: grid; gap: 6px; }
+.song summary { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; cursor: pointer; padding: 4px 0; }
+.song summary .t { font-weight: 700; }
+.song summary .g { margin-left: auto; font-size: .85rem; color: var(--muted); }
+.meter { width: 100%; height: 6px; background: var(--heat0); border-radius: 999px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--gold); border-radius: 999px; }
+.song ol { margin: 6px 0 8px; padding-left: 1.6em; font-size: .85rem; columns: 2 260px; }
+.song li { break-inside: avoid; }
+.song li.lock { color: var(--muted); }
+.genre { font-size: .85rem; color: var(--muted); margin: 8px 0 2px; }
+.weak { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 12px; font-size: .9rem; }
+.weak div { display: flex; justify-content: space-between; border-bottom: 1px dotted var(--line); }
+.weak b { color: var(--ng); }
+.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px 8px; }
+.badge { text-align: center; font-size: .78rem; line-height: 1.35; color: var(--muted); }
+.badge i { display: block; font-style: normal; font-size: 1.8rem; line-height: 1.4; filter: grayscale(1); opacity: .35; }
+.badge.got { color: var(--ink); }
+.badge.got i { filter: none; opacity: 1; }
+.badge small { display: block; color: var(--muted); font-size: .7rem; }
+footer { padding-bottom: 28px; text-align: center; font-size: .8rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>マイページ<small>読譜トレーナー</small></h1>
+  <a class="back" href="/">← 練習にもどる</a>
+</header>
+
+<main>
+  <section class="card"><div id="account" class="account">記録を読み込んでいます…</div></section>
+
+  <div id="tiles" class="tiles" aria-label="まとめ"></div>
+
+  <section class="card">
+    <h2>練習カレンダー（最近15週）</h2>
+    <div class="cal-wrap"><div id="cal" class="cal" role="img" aria-label="日ごとの練習時間"></div></div>
+    <div class="scale" aria-hidden="true">少ない <i style="background:var(--heat0)"></i><i style="background:var(--heat1)"></i><i style="background:var(--heat2)"></i><i style="background:var(--heat3)"></i><i style="background:var(--heat4)"></i> 多い</div>
+  </section>
+
+  <section class="card">
+    <h2>練習時間（最近30日・分）</h2>
+    <div id="bars" class="bars" role="img" aria-label="最近30日の練習時間"></div>
+    <div id="barsAxis" class="axis"></div>
+  </section>
+
+  <section class="card">
+    <h2>ステージの★と自己ベスト</h2>
+    <div style="overflow-x:auto"><table id="stages"></table></div>
+  </section>
+
+  <section class="card">
+    <h2>曲の★</h2>
+    <div id="songs" class="songs"></div>
+  </section>
+
+  <section class="card">
+    <h2>苦手な音</h2>
+    <div id="weak" class="weak"></div>
+  </section>
+
+  <section class="card">
+    <h2 id="badgesTitle">バッジ</h2>
+    <div id="badges" class="badges"></div>
+  </section>
+</main>
+
+<footer>
+  記録はこの端末のブラウザに保存されます。ログインしていると、スマホやパソコンなどほかの端末の記録と合わせて表示します。<br>
+  <a href="https://habatakijuku.com/">羽ばたき塾</a>・<a href="https://habatakijuku.com/legal/terms.html">利用規約</a>・<a href="https://habatakijuku.com/legal/privacy.html">プライバシーポリシー</a>
+</footer>
+<div id="tip" class="tip" hidden></div>
+
+<script src="../songs.js?v=3"></script>
+<script src="../game.js?v=3"></script>
+<script src="../song-mode.js?v=8"></script>
+<script src="../record-sync.js?v=1"></script>
+<script>
+'use strict';
+// 練習画面（index.html）の本体の代わりに、曲のステップ数や音名を出すのに要るものだけを置く
+const LETTERS = ['c', 'd', 'e', 'f', 'g', 'a', 'b'];
+const LETTER_PC = [0, 2, 4, 5, 7, 9, 11];
+const NAMES = { ja: ['ド', 'レ', 'ミ', 'ファ', 'ソ', 'ラ', 'シ'], en: ['C', 'D', 'E', 'F', 'G', 'A', 'B'] };
+const stepToMidi = (step, acc) => (Math.floor(step / 7) + 1) * 12 + LETTER_PC[step % 7] + acc;
+const noteLabel = (step, acc, naming) => {
+  const name = NAMES[naming][step % 7] + (acc === 1 ? '♯' : acc === -1 ? '♭' : '');
+  const sci = NAMES.en[step % 7] + (acc === 1 ? '♯' : acc === -1 ? '♭' : '') + Math.floor(step / 7);
+  return naming === 'en' ? sci : `${name}（${sci}）`;
+};
+const STAGES = [
+  { name: '単音' }, { name: '2音' }, { name: '3音' }, { name: '4音' }, { name: '重音' }, { name: '和音' }, { name: '転回形' },
+];
+const CLEFS = [['treble', 'ト音記号'], ['bass', 'ヘ音記号'], ['grand', '大譜表']];
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+let record = {};
+let settings = {};
+let progress = {};
+// game.js の daily()・starsOf() などが使う
+const persist = () => {};
+
+const load = () => {
+  record = readLocalRecord();
+  settings = Object.assign({ naming: 'ja', clef: 'treble' }, record.settings || {});
+  progress = Object.assign({}, record.progress || {});
+};
+
+// ---- ツールチップ（棒グラフ・カレンダー） ----
+const tip = $('tip');
+const bindTip = (root) => {
+  root.addEventListener('pointerover', (e) => {
+    const t = e.target instanceof Element ? e.target.closest('[data-tip]') : null;
+    if (!t) return;
+    const r = t.getBoundingClientRect();
+    tip.textContent = t.dataset.tip;
+    tip.style.left = `${r.left + r.width / 2}px`;
+    tip.style.top = `${r.top}px`;
+    tip.hidden = false;
+  });
+  root.addEventListener('pointerout', () => { tip.hidden = true; });
+};
+
+const minutes = (sec) => Math.floor(sec / 60);
+const dateLabel = (k) => { const [, m, d] = k.split('-'); return `${Number(m)}/${Number(d)}`; };
+const level = (sec, goal) => (sec < 60 ? 0 : sec < goal * 0.5 ? 1 : sec < goal ? 2 : sec < goal * 2 ? 3 : 4);
+
+const renderAccount = (me) => {
+  const el = $('account');
+  if (!me || !me.signedIn) {
+    el.innerHTML = '<span class="pill off">ログインしていません</span>' +
+      '<span>いまはこの端末の記録だけを表示しています。練習画面の「設定」→「有料版」の「記録を同期する（無料）」から登録すると、スマホとパソコンの記録をまとめて見られます。</span>';
+    return;
+  }
+  const plan = me.paid
+    ? `<span class="pill on">有料版</span>${me.cancelAtEnd ? '（解約予約中）' : ''}`
+    : '<span class="pill off">無料</span>';
+  el.innerHTML = `<b>${esc(me.name)}</b>さん　${plan}<span class="muted">記録はほかの端末と同期されています。</span>`;
+};
+
+const renderTiles = () => {
+  const d = daily();
+  const songTotals = songStarTotals();
+  const stageGot = Object.entries(progress.best || {}).filter(([k]) => k.startsWith('stage:')).reduce((a, [, b]) => a + (b.stars || 0), 0);
+  const badgeN = BADGES.filter((b) => (progress.badges || {})[b.id]).length;
+  const tile = (v, unit, k) => `<div class="tile"><div class="v">${v}<small>${unit}</small></div><div class="k">${k}</div></div>`;
+  $('tiles').innerHTML =
+    tile(`🔥${streakDays()}`, '日', '連続練習') +
+    tile(minutes(todaySec()), `分 / ${Math.round(d.goal / 60)}分`, '今日の練習') +
+    tile((totalPracticeSec() / 3600).toFixed(1), '時間', '合計の練習時間') +
+    tile(stageGot + songTotals.got, '個', `★の合計（ステージ ${stageGot}・曲 ${songTotals.got}）`) +
+    tile(badgeN, `/ ${BADGES.length}`, 'バッジ');
+};
+
+const renderCalendar = () => {
+  const d = daily();
+  const today = new Date();
+  // 今週の土曜まで、15週ぶん（日曜はじまり）
+  const end = new Date(today);
+  end.setDate(end.getDate() + (6 - end.getDay()));
+  const start = new Date(end);
+  start.setDate(start.getDate() - 15 * 7 + 1);
+  const cells = [];
+  for (const x = new Date(start); x <= end; x.setDate(x.getDate() + 1)) {
+    const k = dayKey(x);
+    const sec = d.days[k] || 0;
+    const future = x > today;
+    const cls = [future ? 'future' : '', k === dayKey(today) ? 'today' : ''].filter(Boolean).join(' ');
+    cells.push(`<i class="${cls}" data-l="${level(sec, d.goal)}" data-tip="${dateLabel(k)}　${minutes(sec)}分"></i>`);
+  }
+  $('cal').innerHTML = cells.join('');
+};
+
+const renderBars = () => {
+  const d = daily();
+  const days = [];
+  for (let i = 29; i >= 0; i--) {
+    const x = new Date();
+    x.setDate(x.getDate() - i);
+    days.push(dayKey(x));
+  }
+  const secs = days.map((k) => d.days[k] || 0);
+  const top = Math.max(d.goal * 1.25, ...secs);
+  $('bars').innerHTML =
+    days.map((k, i) => `<div class="b${secs[i] >= d.goal ? ' met' : ''}" data-tip="${dateLabel(k)}　${minutes(secs[i])}分"><span style="height:${(secs[i] / top) * 100}%"></span></div>`).join('') +
+    `<div class="goal-line" style="bottom:${(d.goal / top) * 100}%"><em>目標 ${Math.round(d.goal / 60)}分</em></div>`;
+  $('barsAxis').innerHTML = `<span>${dateLabel(days[0])}</span><span>${dateLabel(days[15])}</span><span>今日</span>`;
+};
+
+const renderStages = () => {
+  const best = progress.best || {};
+  const clears = progress.clears || {};
+  const cell = (clef, i) => {
+    const b = best[`stage:${clef}:${i + 1}`];
+    if (!b) return `<td><span class="st none">${i + 1 <= (clears[clef] || 0) + 1 ? '☆☆☆' : '🔒'}</span></td>`;
+    return `<td><span class="st">${starText(b.stars)}</span><span class="sc">${b.score}点</span></td>`;
+  };
+  $('stages').innerHTML =
+    `<tr><th></th>${CLEFS.map(([, n]) => `<th>${n}</th>`).join('')}</tr>` +
+    STAGES.map((s, i) => `<tr><td class="name">${i + 1}. ${s.name}</td>${CLEFS.map(([c]) => cell(c, i)).join('')}</tr>`).join('');
+};
+
+const renderSongs = () => {
+  const html = SONG_GENRES.map(([genre, label]) => {
+    const list = SONGS.filter((s) => (s.genre || 'classic') === genre).map((s) => {
+      const steps = songSteps(s);
+      let got = 0;
+      const items = steps.map((st, i) => {
+        const n = starsOf(songKey(s.id, i));
+        got += n;
+        const b = bestOf(songKey(s.id, i));
+        return `<li><span class="st${n ? '' : ' none'}">${starText(n)}</span> ${esc(st.label)}${b ? `　<span class="muted">${b.score}点</span>` : ''}</li>`;
+      });
+      if (s.locked) items.push(`<li class="lock">🔒 ${restPhrases(s)}・つなげる・通し・テンポ（有料版）</li>`);
+      const max = steps.length * 3;
+      return `<details class="song"><summary><span class="t">${esc(s.title)}</span><span class="muted">${esc(s.composer)}</span>` +
+        `<span class="g">★${got} / ${max}${s.locked ? '（お試し）' : ''}</span><span class="meter"><i style="width:${max ? (got / max) * 100 : 0}%"></i></span></summary><ol>${items.join('')}</ol></details>`;
+    }).join('');
+    return `<div class="genre">${label}</div>${list}`;
+  }).join('');
+  $('songs').innerHTML = html;
+};
+
+const renderWeak = () => {
+  const stats = record.noteStats || {};
+  const naming = settings.naming || 'ja';
+  const clefName = { treble: 'ト音', bass: 'ヘ音' };
+  const rows = Object.entries(stats)
+    .filter(([, st]) => st && st.n >= 3 && st.miss > 0)
+    .map(([id, st]) => ({ id, rate: st.miss / st.n, n: st.n }))
+    .sort((a, b) => b.rate - a.rate || b.n - a.n)
+    .slice(0, 12);
+  $('weak').innerHTML = rows.length
+    ? rows.map(({ id, rate, n }) => {
+        const [clef, step, acc] = id.split('|');
+        return `<div><span>${clefName[clef] || ''} ${noteLabel(Number(step), Number(acc), naming)}</span><span><b>${Math.round(rate * 100)}%</b> <span class="muted">/${n}回</span></span></div>`;
+      }).join('')
+    : '<span class="muted">まだ記録が少ないか、苦手な音はありません（3回以上出た音から、まちがえた割合の高い順に出します）。</span>';
+};
+
+const renderBadgeList = () => {
+  const have = progress.badges || {};
+  $('badgesTitle').textContent = `バッジ（${BADGES.filter((b) => have[b.id]).length} / ${BADGES.length}）`;
+  $('badges').innerHTML = BADGES.map((b) => {
+    const ok = !!have[b.id];
+    return `<div class="badge${ok ? ' got' : ''}" title="${b.desc}"><i>${ok ? b.icon : '？'}</i>${b.name}<small>${ok ? dateLabel(have[b.id]) : b.desc}</small></div>`;
+  }).join('');
+};
+
+const renderAll = (me) => {
+  load();
+  renderAccount(me);
+  renderTiles();
+  renderCalendar();
+  renderBars();
+  renderStages();
+  renderSongs();
+  renderWeak();
+  renderBadgeList();
+};
+
+// 有料版の人は、曲のステップを完全版で数える
+const loadFullSongs = async () => {
+  const res = await fetch('/api/songs', { credentials: 'same-origin' });
+  if (!res.ok) return;
+  const { songs } = await res.json();
+  SONGS.splice(0, SONGS.length, ...songs);
+  compiledSongs.clear();
+  songStepsCache.clear();
+};
+
+bindTip($('cal'));
+bindTip($('bars'));
+renderAll(null);
+(async () => {
+  const res = await fetch('/api/me', { credentials: 'same-origin' });
+  const me = res.ok ? await res.json() : null;
+  if (me && me.signedIn) {
+    if (me.paid) await loadFullSongs();
+    await syncRecord();
+  }
+  renderAll(me);
+})().catch((e) => console.warn('ログインの状態や記録を確かめられませんでした', e));
+</script>
+</body>
+</html>

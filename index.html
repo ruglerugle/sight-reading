@@ -48,6 +48,9 @@ h1 { font-size: 1.5rem; margin: 0; letter-spacing: .05em; }
   font-size: .85rem; padding: 4px 12px; border-radius: 999px;
   background: #eee6d8; color: var(--muted);
 }
+.head-right { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
+.mypage-link { font-size: .9rem; font-weight: 700; color: var(--accent); text-decoration: none; border: 1px solid var(--accent); border-radius: 999px; padding: 3px 14px; background: var(--paper); }
+.mypage-link:hover { background: var(--accent-soft); }
 .midi-status.on { background: #dcefe3; color: var(--ok); }
 .midi-status.off { background: #f6dfdc; color: var(--ng); }
 main { max-width: 960px; margin: 0 auto; padding: 0 16px 32px; display: grid; gap: 16px; }
@@ -212,7 +215,10 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 <body>
 <header>
   <h1>読譜トレーナー</h1>
-  <div id="midiStatus" class="midi-status">MIDIを確認中…</div>
+  <div class="head-right">
+    <div id="midiStatus" class="midi-status">MIDIを確認中…</div>
+    <a class="mypage-link" href="/mypage/">マイページ</a>
+  </div>
 </header>
 
 <main>
@@ -372,7 +378,8 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 <script src="songs.js?v=3"></script>
 <script src="game.js?v=3"></script>
 <script src="song-mode.js?v=8"></script>
-<script src="billing.js?v=3"></script>
+<script src="record-sync.js?v=1"></script>
+<script src="billing.js?v=4"></script>
 <script>
 'use strict';
 const VF = Vex.Flow;
@@ -417,10 +424,12 @@ const loadStore = () => {
 };
 const saveStore = (data) => {
   try {
-    localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    // mtime：この端末で記録を書いた時刻（ほかの端末の記録と合わせるときに、新しいほうの設定を使う）
+    localStorage.setItem(STORE_KEY, JSON.stringify({ ...data, mtime: Date.now() }));
   } catch (e) {
     console.warn('記録を保存できませんでした', e);
   }
+  scheduleRecordPush();
 };
 
 const stored = loadStore();

@@ -80,8 +80,11 @@ const explainPasskey = (e) =>
 // ---- 会員の状態と完全版の楽譜 ----
 const refreshAccount = async () => {
   account = await apiGet('/api/me');
+  recordSignedIn = account.signedIn;
   if (account.paid) await loadFullSongs();
   renderPlan();
+  // ログインしていれば、ほかの端末の記録と合わせる（変わっていたら1回だけ読み直す）
+  if (account.signedIn) await syncRecord({ reloadOnChange: true });
 };
 
 // 有料版の人は、完全版の楽譜に差し替える
@@ -113,11 +116,11 @@ const renderPlan = () => {
     status = `有料版をお使いです（${account.name}）。${account.cancelAtEnd ? `${dateLabel(account.periodEnd)}で終了します` : `次の更新日は${dateLabel(account.periodEnd)}です`}。`;
     btns = btn('portal', 'お支払い・解約', true) + btn('logout', 'ログアウト', true);
   } else if (account.signedIn) {
-    status = `${account.name} でログイン中。有料版にすると、すべての曲を最後まで練習できます（${PRICE_LABEL}）。`;
+    status = `${account.name} でログイン中（練習の記録は端末どうしで同期されます）。有料版にすると、すべての曲を最後まで練習できます（${PRICE_LABEL}）。`;
     btns = btn('buy', `有料版にする（${PRICE_LABEL}）`) + (account.customer ? btn('portal', 'お支払いの履歴', true) : '') + btn('logout', 'ログアウト', true);
   } else {
-    status = `有料版（${PRICE_LABEL}）にすると、すべての曲を最後まで練習できます。`;
-    btns = btn('buy', `有料版にする（${PRICE_LABEL}）`) + btn('login', 'ログイン（購入済みの方）', true);
+    status = `有料版（${PRICE_LABEL}）にすると、すべての曲を最後まで練習できます。無料の会員登録だけでも、練習の記録をスマホとパソコンで同期できます。`;
+    btns = btn('buy', `有料版にする（${PRICE_LABEL}）`) + btn('signup', '記録を同期する（無料）', true) + btn('login', 'ログイン', true);
   }
   $('planStatus').textContent = status;
   $('planBtns').innerHTML = btns;
@@ -215,6 +218,10 @@ const onPlanButton = async (what) => {
   try {
     if (what === 'buy') await buyPlan();
     else if (what === 'login') { afterSignIn = null; openAcct('login'); }
+    else if (what === 'signup') {
+      afterSignIn = null;
+      openAcct('register', '練習の記録をスマホとパソコンで同期するための、読譜トレーナー用のパスキーを作ります（無料）。パスワードやメールアドレスは要りません。');
+    }
     else if (what === 'portal') location.href = (await apiPost('/api/portal')).url;
     else if (what === 'logout') {
       await apiPost('/api/logout');
