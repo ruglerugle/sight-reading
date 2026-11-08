@@ -10,6 +10,7 @@ const KEY_ACC = { C: {}, Am: {}, G: { 3: 1 }, D: { 3: 1, 0: 1 }, F: { 6: -1 } };
 const TEMPO_WINDOW = 150; // テンポの判定：このミリ秒以内のずれならちょうど
 const SONG_W = 360;       // 曲の譜面の幅（viewBox）
 
+const SONG_GENRES = [['classic', 'クラシック・民謡'], ['jazz', 'ジャズ（オリジナル練習曲）']];
 const HAND_SETS = { rh: ['rh'], lhs: ['lhs'], bothS: ['rh', 'lhs'], lh: ['lh'], both: ['rh', 'lh'] };
 const HAND_LABEL = { rh: '右手', lhs: '左手（簡易）', bothS: '両手（簡易）', lh: '左手', both: '両手' };
 
@@ -26,6 +27,13 @@ const parseToken = (tok) => {
   const keys = rest ? [] : (m[2] ? m[2].trim().split(/\s+/) : [m[1]]).map(parsePitch).sort((a, b) => a.step - b.step);
   const dots = m[4] ? 1 : 0;
   return { keys, rest, dur: m[3], dots, beats: SONG_DUR[m[3]] * (dots ? 1.5 : 1), tie: m[5] === '~' };
+};
+
+// 実際に鳴らす拍の位置：スウィングの曲は、拍の裏の8分音符を拍の2/3の位置にずらす
+const playBeat = (song, t) => {
+  if (!song.swing) return t;
+  const beat = Math.floor(t + 1e-9);
+  return Math.abs(t - beat - 0.5) < 1e-6 ? beat + 2 / 3 : t;
 };
 
 const sameKeys = (a, b) => a.length === b.length && a.every((k, i) => k.step === b[i].step && k.acc === b[i].acc);
@@ -308,7 +316,7 @@ const updateSongInfo = () => {
   }
   if (r.step.kind === 'tempo') {
     const bpm = Math.round((r.song.tempo * r.step.pct) / 100);
-    $('stageInfo').innerHTML = `${r.step.label}　♩=${bpm}<br>音の${Math.round(TEMPO_WINDOW / 10) / 100}秒以内のずれまでを「ちょうど」とし、9割でクリア`;
+    $('stageInfo').innerHTML = `${r.step.label}　♩=${bpm}${r.song.swing ? '（8分音符はスウィング）' : ''}<br>音の${Math.round(TEMPO_WINDOW / 10) / 100}秒以内のずれまでを「ちょうど」とし、9割でクリア`;
     return;
   }
   $('stageInfo').innerHTML =
@@ -323,11 +331,14 @@ const songHint = () => {
 
 const syncSongSelects = () => {
   const song = currentSong();
-  $('songSel').innerHTML = SONGS.map((s) => {
+  const option = (s) => {
     const n = songSteps(s).length;
     const done = songRecord(s.id).done.filter((i) => i < n).length;
     return `<option value="${s.id}">${s.title}（${s.composer}）${done ? `　${done}/${n}` : ''}</option>`;
-  }).join('');
+  };
+  $('songSel').innerHTML = SONG_GENRES.map(([genre, label]) =>
+    `<optgroup label="${label}">${SONGS.filter((s) => (s.genre || 'classic') === genre).map(option).join('')}</optgroup>`
+  ).join('');
   $('songSel').value = song.id;
   $('stepSel').innerHTML = songSteps(song).map((s, i) => {
     const mark = isStepDone(song, i) ? '✓ ' : isStepUnlocked(song, i) ? '' : '🔒 ';
@@ -464,7 +475,7 @@ const startTempo = () => {
     const rel = (((b - down) % mLen) + mLen) % mLen;
     songClick(audio0 + b * spb, rel < 1e-6 || mLen - rel < 1e-6);
   }
-  const expected = r.events.flatMap((e) => e.keys.map((k) => ({ ...k, at: perf0 + e.t * spb * 1000, hit: false, miss: false })));
+  const expected = r.events.flatMap((e) => e.keys.map((k) => ({ ...k, at: perf0 + playBeat(song, e.t) * spb * 1000, hit: false, miss: false })));
   const byNote = new Map();
   expected.forEach((x) => { if (!byNote.has(x.note)) byNote.set(x.note, []); byNote.get(x.note).push(x); });
   r.tempo = {
@@ -477,6 +488,8 @@ const startTempo = () => {
   $('startBtn').hidden = true;
   setFeedback('', 'カウントのあとに弾き始めてください');
   requestAnimationFrame(tempoTick);
+  // タブが裏に回って描画が止まっても、終わりの判定だけは時間どおりに行う
+  songDemoTimer = setTimeout(tempoTick, r.tempo.endAt - performance.now() + 50);
 };
 
 const tempoTick = () => {
@@ -488,7 +501,7 @@ const tempoTick = () => {
     if (!x.hit && !x.miss && now > x.at + TEMPO_WINDOW) { x.miss = true; T.misses++; }
   });
   const ms = T.spb * 1000;
-  const cur = r.events.findIndex((e) => T.perf0 + e.t * ms + TEMPO_WINDOW >= now);
+  const cur = r.events.findIndex((e) => T.perf0 + playBeat(r.song, e.t) * ms + TEMPO_WINDOW >= now);
   r.pos = cur < 0 ? r.events.length : cur;
   // 1拍先を見て、次のフレーズに切り替える
   const beat = (now - T.perf0) / ms;
@@ -551,7 +564,7 @@ const playSongDemo = () => {
   const t0 = r.events[0].t;
   const base = ctx.currentTime + 0.2;
   r.events.forEach((e) => e.keys.forEach((k) => {
-    const g = beep(k.midi, base + (e.t - t0) * spb);
+    const g = beep(k.midi, base + (playBeat(r.song, e.t) - t0) * spb);
     if (g) songNodes.push(g);
   }));
 };
