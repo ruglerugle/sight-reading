@@ -233,7 +233,8 @@ const BADGES = [
   { id: 'streak-7', icon: '📅', name: '7日連続', desc: '7日つづけて1分以上練習する', test: () => streakDays() >= 7 },
   { id: 'streak-30', icon: '🏅', name: '30日連続', desc: '30日つづけて1分以上練習する', test: () => streakDays() >= 30 },
   { id: 'goal', icon: '🎯', name: '今日の目標', desc: 'はじめて1日の目標の時間を練習する', test: (c) => c.goal },
-  { id: 'all-stages', icon: '🏆', name: '全ステージ', desc: 'どれかの音部記号で転回形までクリア', test: () => Object.values(progress.clears || {}).some((n) => n >= STAGES.length) },
+  { id: 'all-stages', icon: '🏆', name: '全ステージ', desc: 'どれかの音部記号で転回形までクリア', test: () => Object.values(progress.clears || {}).some((n) => n >= 7) }, // 7＝転回形
+  { id: 'intervals', icon: '📐', name: '音程マスター', desc: 'どれかの音部記号で音程（6〜8度）までクリア', test: () => ['treble', 'bass', 'grand'].some((c) => ((progress.best || {})[`stage:${c}:10`] || {}).stars > 0) },
   { id: 'stars-50', icon: '✨', name: '★50', desc: '★を合計50個集める', test: () => totalStars() >= 50 },
   { id: 'stars-150', icon: '🌟', name: '★150', desc: '★を合計150個集める', test: () => totalStars() >= 150 },
   { id: 'song-step', icon: '🎵', name: 'はじめての曲', desc: '曲のステップをはじめてクリア', test: (c) => c.songClear },

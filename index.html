@@ -230,6 +230,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
       <h3>ステージ</h3>
       <ul>
         <li><b>単音〜4音</b>：音符が1〜4個ならびます。左から順に弾きます。音が増えるほど、いま弾く音より先の音を読んでおく力がつきます。</li>
+        <li><b>音程（2・3度〜6〜8度）</b>：「4音」をクリアすると開く、もう1つの道です。はじめの音だけ名前が出ます。あとは1音ずつ名前を読むのではなく、前の音から「3度上」「5度下」と間隔で読んで弾きます。速く読めるようになる読み方です。</li>
         <li><b>重音・和音・転回形</b>：縦に重なった音を同時に押さえます（画面の鍵盤・PCキーは順に押せばかまいません）。転回形は、和音のいちばん下の音を1オクターブ上に移した形です。</li>
         <li><b>♪ 曲・自由練習</b>：いつでも使えます。自由練習は単音が終わりなく出ます。</li>
         <li><b>初見チャレンジ</b>：「♪ 曲」のいちばん上にある、毎日0時に新しくなる自動作曲の練習曲（Lv1〜4）。はじめて見る楽譜を止まらずに読むのが初見の練習です。だれでも無料で弾けます。</li>
@@ -377,7 +378,7 @@ footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 1
 </dialog>
 
 <script src="songs.js?v=4"></script>
-<script src="game.js?v=3"></script>
+<script src="game.js?v=4"></script>
 <script src="song-mode.js?v=9"></script>
 <script src="record-sync.js?v=1"></script>
 <script src="billing.js?v=5"></script>
@@ -460,12 +461,24 @@ const STAGES = [
   { n: 2, name: '重音', chord: 'dyad' },
   { n: 3, name: '和音', chord: 'triad' },
   { n: 3, name: '転回形', chord: 'inv' },
+  // iv: 音程のステージ（「4音」をクリアしたら開く別の道）。はじめの音だけ名前を出し、あとは前の音からの音程（何度上・下）で読む
+  { n: 4, name: '2・3度', iv: [2, 3], after: 4 },
+  { n: 4, name: '4・5度', iv: [4, 5], after: 8 },
+  { n: 4, name: '6〜8度', iv: [6, 7, 8], after: 9 },
 ];
+const CHORD_LAST = 7;    // 1〜7 は一本道（progress.clears に一番上のクリアを記録）。8〜は音程の道
+const isIvStage = (mode) => typeof mode === 'number' && !!STAGES[mode - 1] && !!STAGES[mode - 1].iv;
+// そのステージをクリアしたか（一本道は clears、音程の道は★の記録で見る）
+const stageCleared = (mode) => (mode <= CHORD_LAST ? clearedOf() >= mode : starsOf(stageKey(mode)) > 0);
+const stageTitle = (mode) => (isIvStage(mode) ? `音程（${STAGES[mode - 1].name}）` : `ステージ${mode}`);
+// クリアしたあとの「次のステージ」（なければ 0）
+const nextStageOf = (mode) => (mode < CHORD_LAST ? mode + 1 : isIvStage(mode) && isIvStage(mode + 1) ? mode + 1 : 0);
 const STAGE_Q = 20;      // 1ステージの問題数
 const CLEAR_FIRST = 16;  // 一発正解がこの数以上（80%）
 const CLEAR_SEC = 3;     // 1音あたりの平均時間がこの秒数以内
 const CHORD_SEC = 4;     // 和音は1和音あたりの平均時間がこの秒数以内
-const isUnlocked = (mode) => mode === 'free' || mode === 'song' || mode <= clearedOf() + 1;
+const isUnlocked = (mode) =>
+  mode === 'free' || mode === 'song' || (STAGES[mode - 1] && STAGES[mode - 1].after ? stageCleared(STAGES[mode - 1].after) : mode <= clearedOf() + 1);
 const stageOf = () => (progress.mode === 'free' ? { n: 1, name: '自由練習' } : STAGES[progress.mode - 1]);
 const noteCount = () => stageOf().n;
 // 時間の基準：和音は1問を1単位、それ以外は1音を1単位として数える
@@ -554,6 +567,30 @@ const buildChord = (kind) => {
   return null;
 };
 
+// ---- 音程 ----
+// 前の音から ivs のどれかの音程（度数）だけ上か下へ動く音の列。同じ譜表の出題範囲の中だけで動く
+const ivLabel = (a, b) => `${Math.abs(b.step - a.step) + 1}度${b.step > a.step ? '上' : '下'}`;
+const buildIntervals = (ivs, n) => {
+  const cands = buildCandidates();
+  const pickAt = (clef, step) => {
+    const opts = cands.filter((c) => c.clef === clef && c.step === step);
+    const ws = opts.map(weightOf);
+    let r = Math.random() * ws.reduce((a, b) => a + b, 0);
+    return opts.find((_, i) => (r -= ws[i]) <= 0) || opts[opts.length - 1];
+  };
+  for (let tries = 0; tries < 100; tries++) {
+    const notes = [pickNext(null)];
+    while (notes.length < n) {
+      const prev = notes[notes.length - 1];
+      const moves = ivs.flatMap((iv) => [iv - 1, 1 - iv]).filter((d) => cands.some((c) => c.clef === prev.clef && c.step === prev.step + d));
+      if (!moves.length) break;
+      notes.push(pickAt(prev.clef, prev.step + moves[Math.floor(Math.random() * moves.length)]));
+    }
+    if (notes.length === n) return notes;
+  }
+  return null;
+};
+
 // ---- 状態 ----
 let current = null;   // { notes: [{ clef, step, acc }], pos: 次に弾く音の番号, chord?: 和音の記号, down?: 押さえている音 }
 let played = null;    // 間違えた音 { clef, step, acc }（単音のときだけ譜面に出す）
@@ -612,7 +649,13 @@ const render = (colorQ) => {
         color: colorQ,
         keys: current.notes.map((q) => ({ ...q, color: [...current.down].some((m) => matches(m, q)) ? okColor : undefined })),
       }]
-    : current.notes.map((q, i) => ({ clef: q.clef, keys: [q], color: colorQ || (i < current.pos ? okColor : undefined) }));
+    : current.notes.map((q, i) => ({
+        clef: q.clef,
+        keys: [q],
+        color: colorQ || (i < current.pos ? okColor : undefined),
+        // 音程のステージ：弾けた音（答えを見たときは全部）の下に、前の音からの度数を出す
+        ann: current.iv && i > 0 && (colorQ || i < current.pos) ? ivLabel(current.notes[i - 1], q).replace('上', '↑').replace('下', '↓') : '',
+      }));
   if (played) slots.push({ clef: played.clef, keys: [played], color: getComputedStyle(document.documentElement).getPropertyValue('--ng').trim() });
 
   const makeNote = (slot) => {
@@ -626,6 +669,10 @@ const render = (colorQ) => {
       }
       if (color) n.setKeyStyle(i, { fillStyle: color, strokeStyle: color });
     });
+    if (slot.ann) {
+      const a = new VF.Annotation(slot.ann).setVerticalJustification(VF.Annotation.VerticalJustify.BOTTOM).setFont('sans-serif', 11);
+      n.addModifier(a, 0);
+    }
     if (slot.color) {
       n.setStyle({ fillStyle: slot.color, strokeStyle: slot.color });
       n.setLedgerLineStyle({ fillStyle: slot.color, strokeStyle: slot.color });
@@ -829,7 +876,10 @@ const nextQuestion = () => {
   }
   const kind = stageOf().chord;
   const chord = kind ? buildChord(kind) : null;
-  if (chord) {
+  const ivNotes = stageOf().iv ? buildIntervals(stageOf().iv, noteCount()) : null;
+  if (ivNotes) {
+    current = { notes: ivNotes, pos: 0, iv: true };
+  } else if (chord) {
     current = { notes: chord.notes, pos: 0, chord: chord.symbol, down: new Set(), missed: new Set() };
   } else {
     // 和音が範囲に入らない設定（譜表の中だけ等）のときも、ここで単音の列にする
@@ -848,7 +898,8 @@ const nextQuestion = () => {
   session.asked++;
   clearHints();
   render();
-  showName(hintText());
+  // 音程のステージは、はじめの音だけ名前を出す
+  showName(hintText() || (current.iv ? `はじめの音は ${noteLabel(current.notes[0].step, current.notes[0].acc, settings.naming)}` : ''));
   updateStageInfo();
   shownAt = noteAt = performance.now();
 };
@@ -988,7 +1039,7 @@ const handleNote = (midi) => {
     if (current.pos < current.notes.length) {
       render();
       showName(hintText());
-      setFeedback('ok', `○ ${noteLabel(q.step, q.acc, settings.naming)}`);
+      setFeedback('ok', `○ ${current.iv && current.pos > 1 ? ivLabel(current.notes[current.pos - 2], q) : noteLabel(q.step, q.acc, settings.naming)}`);
       return;
     }
     completeQuestion(multi ? 'ぜんぶ正解' : noteLabel(q.step, q.acc, settings.naming));
@@ -1034,6 +1085,7 @@ const skip = () => {
 const CLEF_NAME = { treble: 'ト音記号', bass: 'ヘ音記号', grand: '大譜表' };
 const renderStageBar = () => {
   const modes = [...STAGES.map((_, i) => i + 1), 'song', 'free'];
+  const tag = (m) => (isIvStage(m) ? '音程' : m);
   const stageGot = STAGES.reduce((a, _, i) => a + starsOf(stageKey(i + 1)), 0);
   const stageMax = STAGES.length * 3;
   const song = songStarTotals();
@@ -1045,7 +1097,7 @@ const renderStageBar = () => {
       `<span class="sc-name">${name}</span><span class="sc-sub${plain ? ' plain' : ''}">${sub}</span></button>`;
     if (m === 'free') return card('自由練習', '単音 ∞', true);
     if (m === 'song') return card('♪ 曲', `★${song.got}/${song.max}`);
-    return card(`<small>${m}</small>${STAGES[m - 1].name}`, locked ? '🔒' : starText(starsOf(stageKey(m))), locked);
+    return card(`<small>${tag(m)}</small>${STAGES[m - 1].name}`, locked ? '🔒' : starText(starsOf(stageKey(m))), locked);
   }).join('');
   $('starTotal').innerHTML =
     `★ <b>${stageGot + song.got}</b> / ${stageMax + song.max}　` +
@@ -1061,7 +1113,7 @@ const updateStageInfo = () => {
   const units = stageRun.done * rule.units;
   const per = units ? `${(stageRun.time / units / 1000).toFixed(1)}秒` : '–';
   $('stageInfo').innerHTML =
-    `ステージ${progress.mode}　<b>${stageRun.done} / ${STAGE_Q}</b>問　一発正解 <b>${stageRun.first}</b>　${rule.label} <b>${per}</b>` +
+    `${stageTitle(progress.mode)}　<b>${stageRun.done} / ${STAGE_Q}</b>問　一発正解 <b>${stageRun.first}</b>　${rule.label} <b>${per}</b>` +
     `<br>得点 <b>${stageRun.score}</b>${stageRun.combo >= 2 ? `　<b>${stageRun.combo}</b>コンボ` : ''}` +
     `${starsOf(stageKey(progress.mode)) ? `　自己ベスト ${starText(starsOf(stageKey(progress.mode)))} ${bestOf(stageKey(progress.mode)).score}点` : ''}` +
     `<br>クリア（★1）: 一発正解${CLEAR_FIRST}問以上・${rule.label}平均${rule.sec}秒以内` +
@@ -1073,7 +1125,7 @@ const startStage = (mode) => {
   // 答えている途中の問題は数えない
   if (current && state === 'ask') session.asked = Math.max(0, session.asked - 1);
   const wasSong = progress.mode === 'song';
-  progress.mode = isUnlocked(mode) ? mode : clearedOf() + 1;
+  progress.mode = isUnlocked(mode) ? mode : Math.min(clearedOf() + 1, CHORD_LAST);
   stageRun = { done: 0, first: 0, time: 0, oct: settings.oct, score: 0, combo: 0, maxCombo: 0 };
   persist();
   exitSong();
@@ -1089,7 +1141,7 @@ const startStage = (mode) => {
     return;
   }
   $('skipBtn').hidden = false;
-  setFeedback('', stageOf().chord ? '和音の音をぜんぶ同時に押さえてください' : noteCount() > 1 ? '楽譜の音を左から順に弾いてください' : '楽譜の音を弾いてください');
+  setFeedback('', stageOf().chord ? '和音の音をぜんぶ同時に押さえてください' : stageOf().iv ? 'はじめの音から、音どうしの間隔（何度上・下）で読んで、左から順に弾いてください' : noteCount() > 1 ? '楽譜の音を左から順に弾いてください' : '楽譜の音を弾いてください');
   nextQuestion();
   updateStats();
 };
@@ -1104,7 +1156,7 @@ const showResult = () => {
   const clear = okFirst && okTime;
   // オクターブ違いも正解にしたステージは、クリアの記録に入れない
   const counted = clear && !stageRun.oct;
-  if (counted && clearedOf() < mode) {
+  if (counted && mode <= CHORD_LAST && clearedOf() < mode) {
     progress.clears[settings.clef] = mode;
     progress.cleared = Math.max(progress.cleared || 0, mode);
   }
@@ -1112,13 +1164,15 @@ const showResult = () => {
   const stars = stageStars({ clear, first: stageRun.first, per, sec: rule.sec });
   const best = counted ? saveBest(stageKey(mode), stageRun.score, stars) : { prev: bestOf(stageKey(mode)), newBest: false };
   persist();
-  const last = mode === STAGES.length;
+  const next = nextStageOf(mode);
+  const last = !next;
+  const title = stageTitle(mode);
   const mark = (ok) => (ok ? '<span class="pass">○ 達成</span>' : '<span class="miss">× あと少し</span>');
   const el = $('result');
   el.className = 'result ' + (clear ? 'clear' : 'fail');
   el.innerHTML =
     resultHead({
-      title: !clear ? `ステージ${mode} 失敗…` : !counted ? `ステージ${mode} 条件を達成（練習）` : last ? '全ステージクリア！' : `ステージ${mode} クリア！`,
+      title: !clear ? `${title} 失敗…` : !counted ? `${title} 条件を達成（練習）` : mode === CHORD_LAST ? '全ステージクリア！' : isIvStage(mode) && last ? '音程の全ステージクリア！' : `${title} クリア！`,
       stars: counted ? stars : 0,
       score: stageRun.score,
       best,
@@ -1131,7 +1185,8 @@ const showResult = () => {
     }) +
     '<div class="controls">' +
     (clear && stageRun.oct ? '<p>「オクターブ違いも正解」にしていたので、クリアは記録していません。設定を外してもう一度挑戦すると、次のステージが開きます。</p>' : '') +
-    (counted && !last ? `<button type="button" data-go="${mode + 1}">次のステージへ（${STAGES[mode].name}）</button>` : '') +
+    (counted && !last ? `<button type="button" data-go="${next}">次のステージへ（${isIvStage(next) ? '音程 ' : ''}${STAGES[next - 1].name}）</button>` : '') +
+    (counted && mode === 4 && !stageCleared(8) ? '<button type="button" class="ghost" data-go="8">音程のステージへ（2・3度）</button>' : '') +
     `<button type="button" class="${counted && !last ? 'ghost' : ''}" data-go="${mode}">もう一度</button>` +
     '</div>';
   el.hidden = false;

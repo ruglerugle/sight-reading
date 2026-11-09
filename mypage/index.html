@@ -138,7 +138,7 @@ footer { padding-bottom: 28px; text-align: center; font-size: .8rem; color: var(
 <div id="tip" class="tip" hidden></div>
 
 <script src="../songs.js?v=4"></script>
-<script src="../game.js?v=3"></script>
+<script src="../game.js?v=4"></script>
 <script src="../song-mode.js?v=9"></script>
 <script src="../record-sync.js?v=1"></script>
 <script>
@@ -155,6 +155,7 @@ const noteLabel = (step, acc, naming) => {
 };
 const STAGES = [
   { name: '単音' }, { name: '2音' }, { name: '3音' }, { name: '4音' }, { name: '重音' }, { name: '和音' }, { name: '転回形' },
+  { name: '2・3度', iv: true }, { name: '4・5度', iv: true }, { name: '6〜8度', iv: true },
 ];
 const CLEFS = [['treble', 'ト音記号'], ['bass', 'ヘ音記号'], ['grand', '大譜表']];
 const $ = (id) => document.getElementById(id);
@@ -258,12 +259,14 @@ const renderStages = () => {
   const clears = progress.clears || {};
   const cell = (clef, i) => {
     const b = best[`stage:${clef}:${i + 1}`];
-    if (!b) return `<td><span class="st none">${i + 1 <= (clears[clef] || 0) + 1 ? '☆☆☆' : '🔒'}</span></td>`;
+    // 音程のステージ（8〜）は「4音」をクリアしたら開き、その先は1つ前の★で開く
+    const open = !STAGES[i].iv ? i + 1 <= (clears[clef] || 0) + 1 : i === 7 ? (clears[clef] || 0) >= 4 : !!best[`stage:${clef}:${i}`];
+    if (!b) return `<td><span class="st none">${open ? '☆☆☆' : '🔒'}</span></td>`;
     return `<td><span class="st">${starText(b.stars)}</span><span class="sc">${b.score}点</span></td>`;
   };
   $('stages').innerHTML =
     `<tr><th></th>${CLEFS.map(([, n]) => `<th>${n}</th>`).join('')}</tr>` +
-    STAGES.map((s, i) => `<tr><td class="name">${i + 1}. ${s.name}</td>${CLEFS.map(([c]) => cell(c, i)).join('')}</tr>`).join('');
+    STAGES.map((s, i) => `<tr><td class="name">${s.iv ? '音程' : `${i + 1}.`} ${s.name}</td>${CLEFS.map(([c]) => cell(c, i)).join('')}</tr>`).join('');
 };
 
 const renderSongs = () => {
