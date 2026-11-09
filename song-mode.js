@@ -378,15 +378,18 @@ const updateSongInfo = () => {
     const T = r.tempo;
     $('stageInfo').innerHTML =
       `${r.step.label}　♩=${Math.round(T.bpm)}<br>ちょうど <b>${T.hits}</b> / ${T.expected.length}音（${T.need}音以上でクリア）　ずれ・ちがう音 <b>${T.misses + T.wrong}</b>`;
+    updatePlayBar();
     return;
   }
   if (r.step.kind === 'tempo') {
     const bpm = Math.round((r.song.tempo * r.step.pct) / 100);
     $('stageInfo').innerHTML = `${r.step.label}　♩=${bpm}${r.song.swing ? '（8分音符はスウィング）' : ''}<br>音の${Math.round(TEMPO_WINDOW / 10) / 100}秒以内のずれまでを「ちょうど」とし、9割でクリア`;
+    updatePlayBar();
     return;
   }
   $('stageInfo').innerHTML =
     `${r.step.label}　<b>${Math.min(r.pos, r.events.length)} / ${r.events.length}</b>　ミス <b>${r.misses}</b>（${r.allowed}回まででクリア）`;
+  updatePlayBar();
 };
 
 const songHint = () => {
@@ -486,7 +489,7 @@ const finishSongStep = (stars, lines) => {
     (clear && last && r.song.locked && BILLING_ON
       ? '<div class="cta"><b>お試しはここまで</b>' +
         `<span>このあと：${restPhrases(r.song)}、つなげる、全曲通し、テンポ60〜100%</span>` +
-        `<button type="button" data-plan-cta="buy">有料版にする（${PRICE_LABEL}）</button></div>`
+        `<button type="button" class="gold" data-plan-cta="buy">有料版について見る</button></div>`
       : '');
   el.hidden = false;
   $('staff').hidden = true;
@@ -718,7 +721,7 @@ const initSongUI = () => {
   $('result').addEventListener('click', (e) => {
     const b = e.target instanceof Element ? e.target.closest('button[data-step]') : null;
     if (b) startSongStep(Number(b.dataset.step));
-    if (e.target instanceof Element && e.target.closest('button[data-plan-cta]')) buyPlan();
+    if (e.target instanceof Element && e.target.closest('button[data-plan-cta]')) openPaywall('result');
   });
 };
 

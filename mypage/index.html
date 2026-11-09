@@ -10,10 +10,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
 <style>
 :root {
-  --bg: #f4efe6; --paper: #fffdf8; --ink: #2b2620; --muted: #7a6f62; --line: #e2d9ca;
-  --accent: #3b5b8c; --accent-soft: #e3eaf5; --ok: #2e8b57; --ng: #c8433a; --gold: #c98a00;
-  /* 練習時間の濃さ（緑ひと色の明るい→暗い） */
-  --heat0: #ebe4d6; --heat1: #c6e2cd; --heat2: #8fc9a1; --heat3: #4fa673; --heat4: #2e7d50;
+  --bg: #f4f3fb; --paper: #ffffff; --ink: #1e1b3a; --muted: #6b6890; --line: #e4e2f1;
+  --accent: #5b4bdb; --accent-soft: #eeebfe; --ok: #16a34a; --ng: #e5484d; --gold: #d98e00;
+  /* 練習時間の濃さ（紫ひと色の明るい→暗い。0 は練習なしの灰色） */
+  --heat0: #eceaf5; --heat1: #d4ceff; --heat2: #a99cff; --heat3: #7a69f0; --heat4: #4334b5;
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif; line-height: 1.6; }
@@ -85,6 +85,10 @@ td.name { text-align: left; font-weight: 700; white-space: nowrap; }
 .badge.got i { filter: none; opacity: 1; }
 .badge small { display: block; color: var(--muted); font-size: .7rem; }
 footer { padding-bottom: 28px; text-align: center; font-size: .8rem; color: var(--muted); }
+/* 練習画面（2026-11-09 のデザイン）にそろえる */
+.card, .tile { border: 0; border-radius: 20px; box-shadow: 0 1px 2px rgba(30, 27, 58, .06), 0 8px 24px rgba(30, 27, 58, .07); }
+.card { padding: 18px 20px; }
+.back { border: 0; color: #fff; background: var(--accent); box-shadow: 0 3px 0 #4334b5; padding: 6px 16px; }
 </style>
 </head>
 <body>
@@ -138,8 +142,8 @@ footer { padding-bottom: 28px; text-align: center; font-size: .8rem; color: var(
 <div id="tip" class="tip" hidden></div>
 
 <script src="../songs.js?v=4"></script>
-<script src="../game.js?v=4"></script>
-<script src="../song-mode.js?v=9"></script>
+<script src="../game.js?v=5"></script>
+<script src="../song-mode.js?v=10"></script>
 <script src="../record-sync.js?v=1"></script>
 <script>
 'use strict';
@@ -196,7 +200,7 @@ const renderAccount = (me) => {
   const el = $('account');
   if (!me || !me.signedIn) {
     el.innerHTML = '<span class="pill off">ログインしていません</span>' +
-      '<span>いまはこの端末の記録だけを表示しています。練習画面の「設定」→「有料版」の「記録を同期する（無料）」から登録すると、スマホとパソコンの記録をまとめて見られます。</span>';
+      '<span>いまはこの端末の記録だけを表示しています。練習画面の右上の ⚙（設定）にある「記録を同期する（無料）」から登録すると、スマホとパソコンの記録をまとめて見られます。</span>';
     return;
   }
   const plan = me.paid

@@ -207,6 +207,8 @@ const renderDaily = () => {
   el.innerHTML =
     `<span>🔥 <b>${streak}</b>日連続${streak && !practicedToday ? '（今日はまだ）' : ''}</span>` +
     `<span>今日 <b>${todayMin}</b>分 / ${goalMin}分 <span class="goal-bar"><i style="width:${pct}%"></i></span>${pct >= 100 ? ' 🎯' : ''}</span>`;
+  // 練習の画面のホーム（ui.js）があれば、目標のリングも合わせる
+  if (typeof renderToday === 'function') renderToday();
 };
 
 // ---- 通知 ----

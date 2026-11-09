@@ -21,76 +21,317 @@ if (location.hostname === 'sight-reading.habatakijuku.com') {
 <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.2/build/cjs/vexflow.js"></script>
 <style>
+/* ---- デザインの基本（色・文字・角の丸み） ---- */
 :root {
-  --bg: #f4efe6;
-  --paper: #fffdf8;
-  --ink: #2b2620;
-  --muted: #7a6f62;
-  --line: #e2d9ca;
-  --accent: #3b5b8c;
-  --accent-soft: #e3eaf5;
-  --ok: #2e8b57;
-  --ng: #c8433a;
-  --hint: #d9a21b;
+  --bg: #f4f3fb;
+  --paper: #ffffff;
+  --ink: #1e1b3a;
+  --muted: #6b6890;
+  --line: #e4e2f1;
+  --accent: #5b4bdb;
+  --accent-dark: #4334b5;
+  --accent-soft: #eeebfe;
+  --gold: #ffb020;
+  --gold-dark: #d98e00;
+  --ok: #16a34a;
+  --ng: #e5484d;
+  --hint: #f59e0b;
+  --play-bg: #16143a;
+  --play-panel: #232052;
+  --play-ink: #f3f1ff;
+  --play-muted: #a9a5d6;
+  --radius: 20px;
+  --shadow: 0 1px 2px rgba(30, 27, 58, .06), 0 8px 24px rgba(30, 27, 58, .07);
 }
 * { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
   font-family: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
-  line-height: 1.6;
+  font-size: 16px; line-height: 1.65; overflow-x: hidden;
 }
-header {
-  max-width: 960px; margin: 0 auto; padding: 18px 16px 8px;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; justify-content: space-between;
-}
-h1 { font-size: 1.5rem; margin: 0; letter-spacing: .05em; }
-.midi-status {
-  font-size: .85rem; padding: 4px 12px; border-radius: 999px;
-  background: #eee6d8; color: var(--muted);
-}
-.head-right { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; }
-.mypage-link { font-size: .9rem; font-weight: 700; color: var(--accent); text-decoration: none; border: 1px solid var(--accent); border-radius: 999px; padding: 3px 14px; background: var(--paper); }
-.mypage-link:hover { background: var(--accent-soft); }
-.midi-status.on { background: #dcefe3; color: var(--ok); }
-.midi-status.off { background: #f6dfdc; color: var(--ng); }
-main { max-width: 960px; margin: 0 auto; padding: 0 16px 32px; display: grid; gap: 16px; }
-main > * { min-width: 0; }
-.card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
-.stage { display: grid; gap: 8px; justify-items: center; }
-#staff { width: 100%; max-width: 560px; min-height: 160px; position: relative; }
-.song-cursor { position: absolute; width: 3px; margin-left: -1.5px; border-radius: 2px; background: rgba(59, 91, 140, .6); box-shadow: 0 0 8px rgba(59, 91, 140, .5); pointer-events: none; }
-.song-cursor[hidden] { display: none; }
-#staff svg { display: block; width: 100%; height: auto; }
-.feedback { min-height: 2em; font-size: 1.15rem; font-weight: 700; text-align: center; }
-.feedback.ok { color: var(--ok); }
-.feedback.ng { color: var(--ng); }
-.feedback .sub { font-weight: 500; color: var(--muted); font-size: .95rem; }
-.name-hint { min-height: 1.5em; color: var(--hint); font-weight: 700; }
-.controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+a { color: var(--accent); }
+h1, h2, h3 { line-height: 1.35; }
+
+/* ---- ボタン：押すと沈む立体の形 ---- */
 button {
-  font: inherit; cursor: pointer; border: 1px solid var(--accent); background: var(--accent); color: #fff;
-  border-radius: 10px; padding: 6px 16px;
+  font: inherit; font-weight: 700; cursor: pointer; border: 0; color: #fff; background: var(--accent);
+  border-radius: 14px; padding: 10px 20px; box-shadow: 0 4px 0 var(--accent-dark);
+  transition: transform .06s, box-shadow .06s, background .15s; -webkit-tap-highlight-color: transparent;
 }
-button.ghost { background: transparent; color: var(--accent); }
-button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--hint); outline-offset: 2px; }
-.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; }
-.stat b { display: block; font-size: 1.4rem; }
-.stat span { font-size: .8rem; color: var(--muted); }
-.weak { margin-top: 10px; font-size: .9rem; color: var(--muted); text-align: center; }
+button:hover:not(:disabled) { background: #6a5bea; }
+button:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--accent-dark); }
+button:disabled { cursor: not-allowed; opacity: .55; }
+button.ghost { background: var(--paper); color: var(--accent); box-shadow: 0 0 0 2px var(--line) inset, 0 3px 0 var(--line); }
+button.ghost:hover:not(:disabled) { background: var(--accent-soft); }
+button.ghost:active:not(:disabled) { box-shadow: 0 0 0 2px var(--line) inset, 0 0 0 var(--line); }
+button.gold { background: var(--gold); color: #3a2600; box-shadow: 0 4px 0 var(--gold-dark); }
+button.gold:hover:not(:disabled) { background: #ffbc3d; }
+button.big { padding: 14px 28px; font-size: 1.08rem; border-radius: 16px; }
+button.icon { padding: 0; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; font-size: 1.15rem; }
+button.link { background: none; box-shadow: none; color: var(--accent); padding: 0; text-decoration: underline; font-weight: 500; border-radius: 0; }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+select, input[type="text"], input:not([type]) {
+  font: inherit; padding: 8px 12px; border-radius: 12px; border: 2px solid var(--line); background: #fff; color: var(--ink);
+}
+.controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+/* ---- 画面の骨組み：上のバー・タブ・中身 ---- */
+.topbar {
+  position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; background: rgba(244, 243, 251, .9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); min-width: 0; }
+.brand svg { flex: none; }
+.brand b { font-size: 1.12rem; letter-spacing: .04em; white-space: nowrap; }
+.brand small { display: block; font-size: .7rem; color: var(--muted); font-weight: 500; line-height: 1.2; }
+.topbar .sp { flex: 1; }
+.midi-status {
+  font-size: .78rem; font-weight: 700; padding: 5px 12px; border-radius: 999px; white-space: nowrap;
+  background: var(--paper); color: var(--muted); box-shadow: 0 0 0 1px var(--line) inset; cursor: help;
+}
+.midi-status::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #b9b6d3; margin-right: 6px; vertical-align: 1px; }
+.midi-status.on { color: var(--ok); }
+.midi-status.on::before { background: var(--ok); box-shadow: 0 0 0 3px rgba(22, 163, 74, .2); }
+.midi-status.off::before { background: var(--ng); }
+.tabs { display: flex; }
+.tabs button {
+  background: none; box-shadow: none; color: var(--muted); border-radius: 14px; padding: 6px 10px;
+  display: grid; justify-items: center; gap: 2px; font-size: .74rem; font-weight: 700;
+}
+.tabs button svg { width: 24px; height: 24px; }
+.tabs button:hover:not(:disabled) { background: var(--accent-soft); }
+.tabs button[aria-current="page"] { color: var(--accent); }
+.tabs button:active:not(:disabled) { transform: none; box-shadow: none; }
+.view { display: none; }
+body[data-view="home"] #homeView, body[data-view="play"] #playView,
+body[data-view="songs"] #songsView, body[data-view="records"] #recordsView { display: block; }
+.page { max-width: 980px; margin: 0 auto; padding: 8px 16px 40px; }
+.page > h1 { font-size: 1.6rem; margin: 8px 0 4px; }
+.page > .lead { color: var(--muted); margin: 0 0 18px; }
+.card { background: var(--paper); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
+.section-title { display: flex; align-items: baseline; gap: 10px; margin: 28px 0 12px; }
+.section-title h2 { font-size: 1.2rem; margin: 0; }
+.section-title span { color: var(--muted); font-size: .88rem; }
+footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 16px 100px; }
+footer a { color: var(--muted); }
+/* スマホ：タブは画面の下。PC：タブは左 */
+@media (max-width: 899px) {
+  .tabs {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; justify-content: space-around;
+    background: rgba(255, 255, 255, .96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 -1px 0 var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .tabs button { flex: 1; }
+  .brand small { display: none; }
+}
+@media (min-width: 900px) {
+  body { padding-left: 96px; }
+  .tabs {
+    position: fixed; left: 0; top: 0; bottom: 0; width: 96px; z-index: 30; flex-direction: column; gap: 6px;
+    align-items: center; padding: 84px 8px 16px; background: var(--paper); box-shadow: 1px 0 0 var(--line);
+  }
+  .tabs button { width: 76px; padding: 10px 4px; }
+  footer { padding-bottom: 32px; }
+}
+/* 練習中は、まわりのものを隠して楽譜と鍵盤だけにする */
+body[data-view="play"] { background: var(--play-bg); padding-left: 0; }
+body[data-view="play"] .tabs, body[data-view="play"] .topbar, body[data-view="play"] footer { display: none; }
+
+/* ---- ホーム ---- */
+.hello { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 16px; margin: 8px 0 16px; }
+.hello h1 { font-size: 1.55rem; margin: 0; }
+.hello p { margin: 0; color: var(--muted); }
+.home-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 760px) { .home-grid { grid-template-columns: minmax(0, 1fr); } }
+.continue {
+  position: relative; overflow: hidden; color: #fff; border-radius: 24px; padding: 24px;
+  background: radial-gradient(120% 140% at 100% 0%, #8b7bff 0%, #5b4bdb 45%, #3b2fa3 100%);
+  box-shadow: 0 12px 32px rgba(67, 52, 181, .35); display: grid; gap: 6px; align-content: start; min-height: 210px;
+}
+.continue::after {
+  content: ""; position: absolute; right: -30px; bottom: -40px; width: 220px; height: 220px; opacity: .14;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath fill='white' d='M40 6v34.5A10 10 0 1 1 34 31V14L22 17v29.5A10 10 0 1 1 16 37V10z'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+.continue .kicker { font-size: .82rem; font-weight: 700; opacity: .85; letter-spacing: .08em; }
+.continue h2 { margin: 0; font-size: 1.6rem; }
+.continue p { margin: 0 0 8px; opacity: .9; }
+.continue .stars-line { font-size: 1.15rem; letter-spacing: .1em; color: #ffd36b; }
+.continue button { justify-self: start; position: relative; z-index: 1; margin-top: 6px; }
+.continue button.big { background: #fff; color: var(--accent-dark); box-shadow: 0 4px 0 #c9c2ff; }
+.continue button.big:hover { background: #f4f2ff; }
+.today { display: grid; gap: 14px; align-content: start; }
+.today-row { display: flex; align-items: center; gap: 16px; }
+.ring { position: relative; width: 92px; height: 92px; flex: none; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .track { stroke: var(--accent-soft); }
+.ring .fill { stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset .6s; }
+.ring.met .fill { stroke: var(--ok); }
+.ring div { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; line-height: 1.1; }
+.ring b { font-size: 1.45rem; }
+.ring small { font-size: .7rem; color: var(--muted); }
+.today h3 { margin: 0; font-size: 1rem; }
+.today p { margin: 0; font-size: .88rem; color: var(--muted); }
+.minis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.mini { background: var(--bg); border-radius: 14px; padding: 10px 6px; text-align: center; line-height: 1.25; }
+.mini b { display: block; font-size: 1.3rem; }
+.mini span { font-size: .72rem; color: var(--muted); }
+.mini .gold { color: var(--gold-dark); }
+
+/* ステージの道のり */
+.path-wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 760px) { .path-wrap { grid-template-columns: minmax(0, 1fr); } }
+.lane h3 { margin: 0 0 2px; font-size: 1.02rem; }
+.lane > p { margin: 0 0 8px; font-size: .84rem; color: var(--muted); }
+.path { position: relative; display: grid; gap: 4px; padding: 4px 0; }
+.node {
+  position: relative; display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; align-items: center;
+  background: none; box-shadow: none; color: var(--ink); padding: 6px 8px; border-radius: 18px; text-align: left; font-weight: 500;
+}
+.node:hover:not(:disabled) { background: var(--accent-soft); }
+.node:active:not(:disabled) { transform: none; box-shadow: none; }
+.node:disabled { opacity: 1; }
+.node:not(:last-child)::after {
+  content: ""; position: absolute; left: 38px; top: 74px; height: 14px; width: 4px; border-radius: 2px; background: var(--line);
+}
+.node.done:not(:last-child)::after { background: var(--accent); }
+.dot {
+  width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center; font-size: 1.35rem; font-weight: 700;
+  background: var(--paper); color: var(--accent); box-shadow: 0 0 0 3px var(--line) inset, 0 4px 0 var(--line);
+}
+.node.done .dot { background: var(--accent); color: #fff; box-shadow: 0 4px 0 var(--accent-dark); }
+.node.next .dot { background: var(--gold); color: #3a2600; box-shadow: 0 4px 0 var(--gold-dark), 0 0 0 6px rgba(255, 176, 32, .25); animation: pulse 2s infinite; }
+.node.locked .dot { background: #eceaf5; color: #aaa6c8; box-shadow: 0 4px 0 #dcd9ea; }
+.node .nm { font-weight: 700; display: block; }
+.node .st { font-size: .9rem; letter-spacing: .08em; color: var(--gold); }
+.node .st.none { color: #cfcbe3; }
+.node .sub { display: block; font-size: .78rem; color: var(--muted); }
+.node.locked .nm { color: #9c98bd; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 4px 0 var(--gold-dark), 0 0 0 6px rgba(255, 176, 32, .25); } 50% { box-shadow: 0 4px 0 var(--gold-dark), 0 0 0 12px rgba(255, 176, 32, .08); } }
+.extras { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.tile {
+  display: flex; gap: 14px; align-items: center; text-align: left; color: var(--ink); background: var(--paper);
+  border-radius: 18px; padding: 14px 16px; box-shadow: 0 0 0 2px var(--line) inset, 0 4px 0 var(--line); font-weight: 500;
+}
+.tile:hover:not(:disabled) { background: var(--accent-soft); }
+.tile:active:not(:disabled) { box-shadow: 0 0 0 2px var(--line) inset, 0 1px 0 var(--line); }
+.tile .ic { width: 48px; height: 48px; border-radius: 14px; flex: none; display: grid; place-items: center; font-size: 1.5rem; }
+.tile b { display: block; }
+.tile small { color: var(--muted); font-size: .8rem; line-height: 1.4; display: block; }
+.premium {
+  margin-top: 28px; border-radius: 24px; padding: 22px 24px; color: #fff; display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center;
+  background: linear-gradient(120deg, #1e1b3a 0%, #2f2a6b 60%, #4a3fb0 100%); box-shadow: var(--shadow);
+}
+.premium[hidden] { display: none; }
+.premium div { flex: 1 1 260px; }
+.premium h2 { margin: 0 0 4px; font-size: 1.25rem; }
+.premium h2 em { font-style: normal; color: var(--gold); }
+.premium p { margin: 0; opacity: .85; font-size: .92rem; }
+
+/* ---- 曲 ---- */
+.song-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+@media (max-width: 480px) { .song-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+.song-card {
+  display: grid; grid-template-rows: auto 1fr; padding: 0; overflow: hidden; text-align: left; color: var(--ink); background: var(--paper);
+  border-radius: 18px; box-shadow: var(--shadow); font-weight: 500; transition: transform .15s, box-shadow .15s;
+}
+.song-card:hover:not(:disabled) { background: var(--paper); transform: translateY(-3px); box-shadow: 0 14px 30px rgba(30, 27, 58, .14); }
+.song-card:active:not(:disabled) { transform: translateY(0); box-shadow: var(--shadow); }
+.cover { position: relative; aspect-ratio: 16 / 10; display: grid; place-items: center; color: rgba(255, 255, 255, .92); font-size: 2.6rem; overflow: hidden; }
+.cover::before {
+  content: ""; position: absolute; inset: 0; opacity: .18;
+  background: repeating-linear-gradient(180deg, transparent 0 13px, #fff 13px 14px) center / 100% 70px no-repeat;
+}
+.cover .tag { position: absolute; left: 10px; top: 10px; font-size: .7rem; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: rgba(255, 255, 255, .92); color: var(--ink); }
+.cover .tag.free { color: var(--ok); }
+.cover .tag.lock { color: #7a4e00; background: #ffe6b0; }
+.cover .glyph { position: relative; text-shadow: 0 4px 16px rgba(0, 0, 0, .2); }
+.song-meta { padding: 12px 14px 14px; display: grid; gap: 2px; align-content: start; }
+.song-meta b { font-size: 1rem; line-height: 1.35; }
+.song-meta small { color: var(--muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.song-meta .row { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-top: 6px; font-size: .78rem; color: var(--muted); }
+.diff i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--line); margin-right: 2px; }
+.diff i.on { background: var(--accent); }
+.song-meta .got { color: var(--gold-dark); font-weight: 700; }
+.bar { height: 6px; border-radius: 999px; background: var(--bg); overflow: hidden; margin-top: 6px; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+
+/* ---- 記録 ---- */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center; }
+.stat { background: var(--bg); border-radius: 16px; padding: 14px 6px; }
+.stat b { display: block; font-size: 1.5rem; }
+.stat span { font-size: .78rem; color: var(--muted); }
+.weak { margin-top: 12px; font-size: .9rem; color: var(--muted); text-align: center; }
 .weak strong { color: var(--ng); }
-.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 20px; }
-.settings h2 { grid-column: 1 / -1; font-size: 1rem; margin: 0; }
-.field { display: grid; gap: 4px; font-size: .9rem; align-content: start; }
-.field > span { color: var(--muted); }
-select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
-.seg { display: flex; border: 1px solid var(--accent); border-radius: 10px; overflow: hidden; }
-.seg button { flex: 1; border: 0; border-radius: 0; background: transparent; color: var(--accent); padding: 4px 8px; }
-.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
-.check { display: flex; gap: 6px; align-items: center; font-size: .9rem; }
+.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 12px 8px; }
+.badges-head { grid-column: 1 / -1; font-size: .9rem; color: var(--muted); }
+.badges-head b { color: var(--ink); }
+.badge { text-align: center; font-size: .74rem; line-height: 1.3; color: var(--muted); font-weight: 700; }
+.badge i {
+  display: grid; place-items: center; width: 60px; height: 60px; margin: 0 auto 6px; border-radius: 50%; font-style: normal; font-size: 1.7rem;
+  background: #eceaf5; box-shadow: 0 3px 0 #dcd9ea; filter: grayscale(1); opacity: .5;
+}
+.badge.got { color: var(--ink); }
+.badge.got i { filter: none; opacity: 1; background: linear-gradient(160deg, #fff5d6, #ffd977); box-shadow: 0 3px 0 var(--gold-dark); }
+.records-link { margin-top: 16px; display: flex; justify-content: center; }
+.records-link a { text-decoration: none; }
+@media (max-width: 560px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+/* ---- 練習の画面（暗い背景に、楽譜と鍵盤だけ） ---- */
+.play { max-width: 900px; margin: 0 auto; padding: 10px 16px 28px; color: var(--play-ink); }
+.playbar { display: flex; align-items: center; gap: 12px; padding: 4px 0 12px; }
+.playbar button.icon { background: rgba(255, 255, 255, .08); color: var(--play-ink); box-shadow: none; flex: none; }
+.playbar button.icon:hover { background: rgba(255, 255, 255, .16); }
+.playbar .ttl { min-width: 0; flex: 1; display: grid; gap: 6px; }
+.playbar .ttl b { font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prog { height: 10px; border-radius: 999px; background: rgba(255, 255, 255, .12); overflow: hidden; }
+.prog i { display: block; height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, #7c6cff, #b7a9ff); transition: width .3s; }
+.play-score { text-align: right; line-height: 1.15; flex: none; font-variant-numeric: tabular-nums; }
+.play-score b { display: block; font-size: 1.35rem; }
+.play-score small { color: var(--play-muted); font-size: .75rem; }
+.play-score .combo { color: var(--gold); font-weight: 700; }
+.stage { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; justify-items: center; }
+.song-panel { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; width: 100%; }
+.song-panel[hidden] { display: none; }
+.song-panel select { max-width: min(100%, 360px); background: var(--play-panel); color: var(--play-ink); border-color: rgba(255, 255, 255, .14); }
+.song-panel button.ghost { background: rgba(255, 255, 255, .08); color: var(--play-ink); box-shadow: 0 0 0 1px rgba(255, 255, 255, .16) inset; }
+.song-panel button.ghost:hover:not(:disabled) { background: rgba(255, 255, 255, .16); }
+.song-credit { flex-basis: 100%; font-size: .8rem; color: var(--play-muted); text-align: center; }
+.stage-info { font-size: .86rem; color: var(--play-muted); text-align: center; }
+.stage-info b { color: var(--play-ink); }
+.sheet { width: 100%; background: #fffefb; border-radius: 22px; padding: 14px 12px; box-shadow: 0 18px 40px rgba(0, 0, 0, .35); display: grid; justify-items: center; }
+.sheet[hidden] { display: none; }
+#staff { width: 100%; max-width: 600px; min-height: 140px; position: relative; }
+/* 曲の楽譜は縦に長いので、鍵盤まで1画面に入る大きさにする */
+.sheet.song #staff { max-width: min(600px, 62vh); }
+#staff[hidden], .sheet:has(#staff[hidden]) { display: none; }
+#staff svg { display: block; width: 100%; height: auto; }
+.song-cursor { position: absolute; width: 3px; margin-left: -1.5px; border-radius: 2px; background: rgba(91, 75, 219, .7); box-shadow: 0 0 10px rgba(91, 75, 219, .6); pointer-events: none; }
+.song-cursor[hidden] { display: none; }
+.name-hint { min-height: 1.5em; color: var(--gold); font-weight: 700; text-align: center; }
+.feedback { min-height: 1.8em; font-size: 1.1rem; font-weight: 700; text-align: center; color: var(--play-ink); }
+.feedback.ok { color: #4ade80; }
+.feedback.ng { color: #ff7b7f; }
+.feedback .sub { font-weight: 500; color: var(--play-muted); font-size: .92rem; }
+.stage > .controls button.ghost { background: rgba(255, 255, 255, .08); color: var(--play-ink); box-shadow: 0 0 0 1px rgba(255, 255, 255, .16) inset; }
+.kb-note { font-size: .78rem; color: var(--play-muted); text-align: center; }
+.kb-note b { color: var(--play-ink); }
+@media (hover: none) and (pointer: coarse) { .pc-only { display: none; } }
+/* 鍵盤 */
+.kb-box { width: 100%; background: #0d0b24; border-radius: 18px; padding: 10px 10px 8px; box-shadow: 0 0 0 1px rgba(255, 255, 255, .06) inset; }
 .kb-wrap { width: 100%; overflow: hidden; }
+.kb { position: relative; height: 128px; margin: 0 auto; user-select: none; -webkit-user-select: none; touch-action: none; }
+.key { position: absolute; top: 0; border-radius: 0 0 7px 7px; cursor: pointer; transition: background .08s; }
+.key.white { background: linear-gradient(#f1f0f7, #fff 30%); height: 128px; z-index: 1; box-shadow: inset 0 -5px 0 #d9d6ea, inset -1px 0 0 #b9b5d1; }
+.key.black { background: linear-gradient(#1b1938, #2d2a52); height: 80px; z-index: 2; box-shadow: inset 0 -4px 0 #0a091c, 0 2px 3px rgba(0, 0, 0, .4); }
+.key.c-label::after { content: attr(data-label); position: absolute; bottom: 8px; left: 0; right: 0; text-align: center; font-size: 10px; color: #a29ec4; }
+.key.ok { background: #22c55e !important; }
+.key.ng { background: var(--ng) !important; }
+.key.hint { background: var(--gold) !important; }
+.key.pc-range::before { content: ""; position: absolute; left: 4px; right: 4px; bottom: 3px; height: 3px; border-radius: 2px; background: var(--accent); opacity: .5; }
 .kb-nav {
-  position: relative; width: 100%; height: 26px; margin-top: 2px; background: #fff;
-  border: 1px solid #aaa; border-radius: 4px; overflow: hidden; cursor: grab; touch-action: none; user-select: none;
+  position: relative; width: 100%; height: 26px; margin-top: 8px; background: #fff; border-radius: 6px;
+  overflow: hidden; cursor: grab; touch-action: none; user-select: none;
 }
 .kb-nav[hidden] { display: none; }
 .kb-nav.dragging { cursor: grabbing; }
@@ -99,68 +340,14 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
 .kb-nav-key.white { bottom: 0; border-right: 1px solid #ccc; }
 .kb-nav-key.black { height: 60%; background: #444; }
 .kb-nav-key.c::after { content: ""; position: absolute; left: 1px; bottom: 2px; width: 3px; height: 3px; border-radius: 50%; background: #999; }
-.kb-nav-shade { position: absolute; top: 0; bottom: 0; background: rgba(43, 38, 32, .35); pointer-events: none; }
-.kb-nav-win {
-  position: absolute; top: 0; bottom: 0; border: 2px solid var(--accent); border-radius: 4px;
-  box-shadow: 0 0 0 1px #fff inset; pointer-events: none;
-}
-.kb { position: relative; height: 120px; margin: 0 auto; user-select: none; -webkit-user-select: none; touch-action: none; }
-.key { position: absolute; top: 0; border: 1px solid #555; border-radius: 0 0 5px 5px; cursor: pointer; }
-.key.white { background: #fff; height: 120px; z-index: 1; }
-.key.black { background: #222; height: 74px; z-index: 2; }
-.key.c-label::after {
-  content: attr(data-label); position: absolute; bottom: 4px; left: 0; right: 0;
-  text-align: center; font-size: 10px; color: #999;
-}
-.key.ok { background: var(--ok) !important; }
-.key.ng { background: var(--ng) !important; }
-.key.hint { background: var(--hint) !important; }
-.star-total { font-size: .9rem; color: var(--muted); text-align: center; }
-.star-total b { color: #c98a00; font-size: 1.2rem; }
-.stage-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); gap: 5px; width: 100%; max-width: 720px; }
-.stage-card { display: grid; gap: 0; padding: 6px 4px; border-radius: 12px; background: var(--paper); color: var(--ink); border: 1px solid var(--line); line-height: 1.35; }
-.stage-card:hover:not(:disabled) { border-color: var(--accent); }
-.stage-card.on { border: 2px solid var(--accent); background: var(--accent-soft); padding: 5px 3px; }
-.stage-card:disabled { opacity: .5; cursor: not-allowed; }
-.sc-name, .sc-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sc-name { font-weight: 700; font-size: .88rem; }
-.sc-name small { color: var(--muted); font-weight: 500; margin-right: 3px; }
-.sc-sub { font-size: .8rem; color: #c98a00; letter-spacing: .04em; }
-.sc-sub.plain { color: var(--muted); letter-spacing: 0; }
-.stage-info { font-size: .9rem; color: var(--muted); text-align: center; }
-.stage-info b { color: var(--ink); }
-.result { display: grid; gap: 6px; justify-items: center; text-align: center; padding: 12px 0 4px; }
-.result[hidden], #staff[hidden] { display: none; }
-.result h2 { margin: 0; font-size: 1.5rem; }
-.result.clear h2 { color: var(--ok); }
-.result.fail h2 { color: var(--ng); }
-.result p { margin: 0; }
-.result .pass { color: var(--ok); font-weight: 700; }
-.result .miss { color: var(--ng); font-weight: 700; }
-.song-panel { display: grid; gap: 6px; justify-items: center; width: 100%; }
-.song-panel[hidden] { display: none; }
-.song-panel label { display: flex; gap: 6px; align-items: center; font-size: .9rem; color: var(--muted); width: min(100%, 460px); white-space: nowrap; }
-.song-panel select { flex: 1; min-width: 0; }
-.song-credit { font-size: .8rem; color: var(--muted); text-align: center; }
-.plan-status { font-size: .9rem; }
-.plan-btns { justify-content: flex-start; }
-.plan-legal { font-size: .8rem; color: var(--muted); }
-.plan-legal a, footer a { color: var(--accent); }
-.acct-dlg { max-width: min(92vw, 420px); border: 1px solid var(--line); border-radius: 14px; padding: 20px; background: var(--paper); color: var(--ink); }
-.acct-dlg::backdrop { background: rgba(43, 38, 32, .45); }
-.acct-dlg h2 { margin: 0 0 8px; font-size: 1.1rem; }
-.acct-dlg p { margin: 0 0 10px; font-size: .9rem; }
-.acct-dlg input { font: inherit; width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px; }
-.acct-dlg .link { background: none; border: 0; color: var(--accent); padding: 0; text-decoration: underline; }
-.acct-error { color: var(--ng); font-size: .9rem; }
-.acct-code { font-family: ui-monospace, Consolas, monospace; font-size: 1.2rem; letter-spacing: .05em; padding: 8px; background: var(--accent-soft); border-radius: 8px; text-align: center; }
-.cta { display: grid; gap: 6px; justify-items: center; margin-top: 8px; padding: 10px; border: 1px dashed var(--accent); border-radius: 10px; }
-.stage { position: relative; }
-#judgeLayer { position: absolute; left: 0; right: 0; top: 34%; display: grid; justify-items: center; pointer-events: none; z-index: 5; }
-.judge { text-align: center; animation: judgeUp .9s ease-out forwards; text-shadow: 0 1px 0 #fff, 0 0 8px #fff; }
-.judge b { display: block; font-size: 1.5rem; letter-spacing: .04em; }
-.judge span { display: block; font-size: .9rem; font-weight: 700; color: var(--muted); }
-.judge.perfect b { color: #c98a00; font-size: 1.8rem; }
+.kb-nav-shade { position: absolute; top: 0; bottom: 0; background: rgba(13, 11, 36, .55); pointer-events: none; }
+.kb-nav-win { position: absolute; top: 0; bottom: 0; border: 2px solid #8b7bff; border-radius: 6px; pointer-events: none; }
+/* 判定の表示 */
+#judgeLayer { position: absolute; left: 0; right: 0; top: 30%; display: grid; justify-items: center; pointer-events: none; z-index: 5; }
+.judge { text-align: center; animation: judgeUp .9s ease-out forwards; text-shadow: 0 2px 12px rgba(0, 0, 0, .25); }
+.judge b { display: block; font-size: 1.7rem; letter-spacing: .04em; }
+.judge span { display: block; font-size: .9rem; font-weight: 700; color: var(--muted); background: rgba(255, 255, 255, .9); border-radius: 999px; padding: 0 10px; }
+.judge.perfect b { color: var(--gold-dark); font-size: 2rem; }
 .judge.good b { color: var(--ok); }
 .judge.ok b { color: var(--accent); }
 .judge.miss b { color: var(--ng); }
@@ -170,218 +357,428 @@ select { font: inherit; padding: 4px 8px; border-radius: 8px; border: 1px solid 
   30% { transform: scale(1); }
   100% { opacity: 0; transform: translateY(-34px); }
 }
-.stars { font-size: 2.6rem; line-height: 1; letter-spacing: .1em; }
-.stars span { color: #e2d9ca; display: inline-block; }
-.stars span.on { color: #f2b705; animation: starPop .45s var(--d) both; }
+/* 結果 */
+.result {
+  width: 100%; max-width: 560px; display: grid; gap: 8px; justify-items: center; text-align: center;
+  background: var(--paper); color: var(--ink); border-radius: 26px; padding: 28px 20px 24px; box-shadow: 0 24px 60px rgba(0, 0, 0, .45);
+  animation: resultIn .35s ease-out both;
+}
+@keyframes resultIn { from { opacity: 0; transform: translateY(16px) scale(.97); } }
+.result[hidden] { display: none; }
+.result h2 { margin: 4px 0 0; font-size: 1.6rem; }
+.result.clear h2 { color: var(--ink); }
+.result.fail h2 { color: var(--ng); }
+.result p { margin: 0; font-size: .92rem; }
+.result .pass { color: var(--ok); font-weight: 700; margin-left: 4px; }
+.result .miss { color: var(--ng); font-weight: 700; margin-left: 4px; }
+.result .controls { margin-top: 10px; }
+.stars { font-size: 3.2rem; line-height: 1; letter-spacing: .12em; }
+.stars span { color: #e7e5f2; display: inline-block; }
+.stars span.on { color: var(--gold); text-shadow: 0 4px 0 var(--gold-dark); animation: starPop .45s var(--d) both; }
 @keyframes starPop { 0% { transform: scale(0) rotate(-40deg); opacity: 0; } 70% { transform: scale(1.35); opacity: 1; } 100% { transform: scale(1); } }
 .score { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; justify-content: center; }
-.score b { font-size: 2.2rem; font-variant-numeric: tabular-nums; }
+.score b { font-size: 2.6rem; font-variant-numeric: tabular-nums; }
 .score small { color: var(--muted); }
-.score .best { font-style: normal; font-weight: 700; color: #fff; background: var(--ok); border-radius: 999px; padding: 2px 10px; font-size: .85rem; animation: starPop .5s 1s both; }
+.score .best { font-style: normal; font-weight: 700; color: #fff; background: var(--ok); border-radius: 999px; padding: 2px 12px; font-size: .85rem; animation: starPop .5s 1s both; }
 .next-star { font-size: .85rem; color: var(--muted); }
-.daily { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: center; justify-content: center; font-size: .9rem; color: var(--muted); }
-.daily b { color: var(--ink); font-size: 1.05rem; }
-.goal-bar { display: inline-block; vertical-align: middle; width: 90px; height: 8px; margin-left: 4px; background: var(--line); border-radius: 999px; overflow: hidden; }
-.goal-bar i { display: block; height: 100%; background: var(--ok); border-radius: 999px; }
-.toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 8px 18px; border-radius: 999px; z-index: 60; font-weight: 700; box-shadow: 0 4px 16px rgba(0,0,0,.2); animation: toastIn 3.2s both; white-space: nowrap; }
+.cta { display: grid; gap: 8px; justify-items: center; margin-top: 10px; padding: 16px; width: 100%; border-radius: 18px; background: linear-gradient(120deg, #fff6df, #ffeccc); color: #4a3200; }
+.cta span { font-size: .88rem; }
+.toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 10px 20px; border-radius: 999px; z-index: 60; font-weight: 700; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); animation: toastIn 3.2s both; white-space: nowrap; }
 @keyframes toastIn { 0% { opacity: 0; transform: translate(-50%, 20px); } 10%, 85% { opacity: 1; transform: translate(-50%, 0); } 100% { opacity: 0; transform: translate(-50%, 10px); } }
-.badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 10px 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
-.badges-head { grid-column: 1 / -1; font-size: .9rem; color: var(--muted); }
-.badges-head b { color: var(--ink); }
-.badge { text-align: center; font-size: .72rem; line-height: 1.3; color: var(--muted); }
-.badge i { display: block; font-style: normal; font-size: 1.6rem; line-height: 1.4; filter: grayscale(1); opacity: .35; }
-.badge.got { color: var(--ink); }
-.badge.got i { filter: none; opacity: 1; }
 .confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 50; }
-@media (prefers-reduced-motion: reduce) { .judge, .stars span.on, .score .best { animation: none; } }
-.kb-note { font-size: .8rem; color: var(--muted); text-align: center; }
-.kb-note b { color: var(--ink); }
-/* タッチだけの端末（スマホ・タブレット）では PC キーの説明を出さない */
-@media (hover: none) and (pointer: coarse) { .pc-only { display: none; } }
-.key.pc-range::after { content: ""; position: absolute; left: 3px; right: 3px; bottom: 2px; height: 3px; border-radius: 2px; background: var(--accent); opacity: .45; }
-.intro { padding: 0; }
-.intro summary { cursor: pointer; padding: 12px 16px; font-weight: 700; color: var(--accent); }
-.intro .body { padding: 0 16px 14px; font-size: .92rem; }
-.intro h3 { font-size: .95rem; margin: 12px 0 4px; }
-.intro p, .intro ul { margin: 0 0 6px; }
-.intro ul { padding-left: 1.3em; }
-footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 16px 24px; }
-@media (max-width: 560px) {
-  .stats { grid-template-columns: repeat(2, 1fr); }
-  h1 { font-size: 1.25rem; }
+
+/* ---- 下から出る画面（設定・有料版・はじめての方へ・アカウント） ---- */
+dialog.sheet-dlg {
+  border: 0; padding: 0; width: min(560px, 100vw); max-width: 100vw; max-height: min(88vh, 860px); border-radius: 26px;
+  background: var(--paper); color: var(--ink); box-shadow: 0 30px 80px rgba(20, 16, 60, .35);
+}
+dialog.sheet-dlg::backdrop { background: rgba(22, 20, 58, .55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+@media (max-width: 600px) {
+  dialog.sheet-dlg { margin: auto 0 0; border-radius: 26px 26px 0 0; max-height: 92vh; }
+}
+dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
+@keyframes sheetIn { from { transform: translateY(30px); opacity: 0; } }
+.dlg-in { padding: 22px 22px calc(22px + env(safe-area-inset-bottom)); }
+.dlg-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.dlg-head h2 { margin: 0; font-size: 1.25rem; flex: 1; }
+.dlg-head button.icon { background: var(--bg); color: var(--muted); box-shadow: none; width: 36px; height: 36px; font-size: 1rem; }
+.settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 18px; }
+@media (max-width: 480px) { .settings { grid-template-columns: minmax(0, 1fr); } }
+.settings h3 { grid-column: 1 / -1; margin: 6px 0 -6px; font-size: .95rem; color: var(--muted); }
+.field { display: grid; gap: 6px; font-size: .92rem; align-content: start; }
+.field > span { color: var(--muted); font-weight: 700; font-size: .84rem; }
+.field.wide { grid-column: 1 / -1; }
+.seg { display: flex; background: var(--bg); border-radius: 14px; padding: 4px; gap: 4px; }
+.seg button { flex: 1; background: transparent; color: var(--muted); box-shadow: none; padding: 7px 8px; border-radius: 10px; }
+.seg button:hover:not(:disabled) { background: rgba(255, 255, 255, .7); }
+.seg button[aria-pressed="true"] { background: var(--paper); color: var(--accent); box-shadow: 0 2px 6px rgba(30, 27, 58, .12); }
+.seg button:active:not(:disabled) { transform: none; }
+.check { display: flex; gap: 10px; align-items: center; font-size: .94rem; cursor: pointer; }
+.check input { width: 20px; height: 20px; accent-color: var(--accent); }
+.plan-status { font-size: .92rem; }
+.plan-btns { justify-content: flex-start; }
+.plan-legal { font-size: .78rem; color: var(--muted); }
+.acct-error { color: var(--ng); font-size: .9rem; }
+.acct-code { font-family: ui-monospace, Consolas, monospace; font-size: 1.2rem; letter-spacing: .05em; padding: 10px; background: var(--accent-soft); border-radius: 12px; text-align: center; }
+#acctDlg p { margin: 0 0 12px; font-size: .94rem; }
+#acctDlg input { width: 100%; margin-bottom: 12px; }
+.help h3 { font-size: 1rem; margin: 16px 0 4px; }
+.help p, .help ul { margin: 0 0 8px; font-size: .93rem; }
+.help ul { padding-left: 1.2em; }
+/* 有料版の案内 */
+.pay-hero { margin: -22px -22px 18px; padding: 26px 22px 22px; color: #fff; border-radius: 26px 26px 0 0; background: radial-gradient(120% 140% at 100% 0%, #8b7bff 0%, #5b4bdb 45%, #2c2380 100%); }
+.pay-hero h2 { margin: 0 0 4px; font-size: 1.45rem; }
+.pay-hero p { margin: 0; opacity: .9; font-size: .92rem; }
+.pay-hero .crown { font-size: 2rem; }
+.benefits { list-style: none; padding: 0; margin: 0 0 18px; display: grid; gap: 12px; }
+.benefits li { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: start; }
+.benefits li::before { content: "✓"; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #dcfce7; color: var(--ok); font-weight: 700; }
+.benefits b { display: block; }
+.benefits small { color: var(--muted); font-size: .84rem; }
+.price-card { border-radius: 18px; padding: 16px 18px; box-shadow: 0 0 0 2px var(--accent) inset; background: var(--accent-soft); display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.price-card b { font-size: 1.9rem; white-space: nowrap; }
+.price-card b span { font-size: 1rem; margin-left: 2px; }
+.price-card > div:last-child { font-size: .9rem; line-height: 1.5; }
+.price-card small { color: var(--muted); }
+.trust { display: grid; gap: 4px; margin-top: 14px; font-size: .8rem; color: var(--muted); text-align: center; }
+/* はじめての方へ */
+.ob-step[hidden] { display: none; }
+.ob-step h2 { font-size: 1.3rem; margin: 6px 0 4px; }
+.ob-step p { color: var(--muted); margin: 0 0 16px; }
+.choices { display: grid; gap: 10px; }
+.choice { display: flex; gap: 14px; align-items: center; text-align: left; background: var(--paper); color: var(--ink); border-radius: 16px; padding: 14px 16px; box-shadow: 0 0 0 2px var(--line) inset, 0 4px 0 var(--line); font-weight: 500; }
+.choice:hover:not(:disabled) { background: var(--accent-soft); }
+.choice:active:not(:disabled) { box-shadow: 0 0 0 2px var(--line) inset, 0 1px 0 var(--line); }
+.choice .ic { font-size: 1.6rem; width: 40px; text-align: center; flex: none; }
+.choice b { display: block; }
+.choice small { color: var(--muted); font-size: .82rem; }
+.ob-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 8px; }
+.ob-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.ob-dots i.on { background: var(--accent); width: 22px; border-radius: 999px; }
+.ob-hero { text-align: center; padding: 8px 0 4px; }
+.ob-hero svg { margin-bottom: 8px; }
+@media (prefers-reduced-motion: reduce) {
+  .judge, .stars span.on, .score .best, .node.next .dot, .result, dialog.sheet-dlg[open] { animation: none; }
 }
 </style>
 </head>
-<body>
-<header>
-  <h1>読譜トレーナー</h1>
-  <div class="head-right">
-    <div id="midiStatus" class="midi-status">MIDIを確認中…</div>
-    <a class="mypage-link" href="/mypage/">マイページ</a>
-  </div>
+<body data-view="home">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo" viewBox="0 0 40 40"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b7bff"/><stop offset="1" stop-color="#4334b5"/></linearGradient></defs><rect width="40" height="40" rx="12" fill="url(#lg)"/><path fill="#fff" d="M26 8v15.4a5 5 0 1 1-3-4.6V13l-8 2v11.4a5 5 0 1 1-3-4.6V11z"/></symbol>
+</svg>
+
+<header class="topbar">
+  <a class="brand" href="#" data-goto-view="home" aria-label="読譜トレーナー ホーム">
+    <svg width="36" height="36"><use href="#logo"/></svg>
+    <span><b>読譜トレーナー</b><small>羽ばたき塾</small></span>
+  </a>
+  <span class="sp"></span>
+  <div id="midiStatus" class="midi-status" role="status">MIDIを確認中</div>
+  <button type="button" class="icon ghost" id="settingsBtn" aria-label="設定">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </button>
 </header>
 
-<main>
-  <div id="dailyBar" class="daily" aria-live="polite"></div>
-  <details class="card intro" id="intro">
-    <summary>はじめての方へ（使い方とクリア条件）</summary>
-    <div class="body">
-      <p>楽譜に出た音符を見て、その音の鍵盤を弾く練習です。MIDIピアノ・画面の鍵盤・PCのキーボードのどれでも弾けます。</p>
-      <h3>ステージ</h3>
-      <ul>
-        <li><b>単音〜4音</b>：音符が1〜4個ならびます。左から順に弾きます。音が増えるほど、いま弾く音より先の音を読んでおく力がつきます。</li>
-        <li><b>音程（2・3度〜6〜8度）</b>：「4音」をクリアすると開く、もう1つの道です。はじめの音だけ名前が出ます。あとは1音ずつ名前を読むのではなく、前の音から「3度上」「5度下」と間隔で読んで弾きます。速く読めるようになる読み方です。</li>
-        <li><b>重音・和音・転回形</b>：縦に重なった音を同時に押さえます（画面の鍵盤・PCキーは順に押せばかまいません）。転回形は、和音のいちばん下の音を1オクターブ上に移した形です。</li>
-        <li><b>♪ 曲・自由練習</b>：いつでも使えます。自由練習は単音が終わりなく出ます。</li>
-        <li><b>初見チャレンジ</b>：「♪ 曲」のいちばん上にある、毎日0時に新しくなる自動作曲の練習曲（Lv1〜4）。はじめて見る楽譜を止まらずに読むのが初見の練習です。だれでも無料で弾けます。</li>
-      </ul>
-      <h3>クリア条件</h3>
-      <p>1ステージは20問。<b>一発正解が16問以上</b>で、<b>1音あたりの平均が3秒以内</b>（和音のステージは1和音あたり4秒以内）ならクリアで、次のステージが開きます。進み具合はト音記号・ヘ音記号・大譜表で別々です。「オクターブ違いも正解」にしているあいだは、クリアを記録しません。</p>
-      <h3>なぜ効くのか</h3>
-      <p>楽譜を読むのが遅いのは、多くの場合「下から2本目の線だから…ソ」と線を数えて音名を出しているからです。音符の位置を見たら、数えずにすぐ鍵盤の位置が出る状態になるまで、短い問題をたくさんくり返すのがいちばんの近道です。時間の条件があるのはそのためです。まちがえた音や時間がかかった音ほど、多く出題されます。</p>
-    </div>
-  </details>
+<nav class="tabs" aria-label="画面">
+  <button type="button" data-tab="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>ホーム</button>
+  <button type="button" data-tab="play"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M7 5v9M12 5v9M17 5v9"/></svg>練習</button>
+  <button type="button" data-tab="songs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>曲</button>
+  <button type="button" data-tab="records"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>記録</button>
+</nav>
 
-  <section class="card stage" aria-label="出題">
-    <div id="starTotal" class="star-total"></div>
-    <div id="stageBar" class="stage-bar" role="group" aria-label="ステージ"></div>
-    <div id="songPanel" class="song-panel" hidden>
-      <label>曲 <select id="songSel"></select></label>
-      <label>ステップ <select id="stepSel"></select></label>
-      <div class="controls">
+<!-- ホーム -->
+<section id="homeView" class="view" aria-label="ホーム">
+  <div class="page">
+    <div class="hello">
+      <div><h1 id="helloTitle">今日も1曲ぶん、楽譜を読もう</h1><p id="helloSub">毎日すこしずつが、いちばんの近道です。</p></div>
+      <button type="button" class="link" id="helpBtn">使い方とクリア条件</button>
+    </div>
+    <div class="home-grid">
+      <div id="continueCard" class="continue"></div>
+      <div class="card today">
+        <div class="today-row">
+          <div id="goalRing" class="ring"></div>
+          <div><h3>今日の目標</h3><p id="goalText"></p><div id="dailyBar" hidden></div></div>
+        </div>
+        <div class="minis">
+          <div class="mini"><b id="miniStreak">0</b><span>🔥 連続日数</span></div>
+          <div class="mini"><b id="miniStars" class="gold">0</b><span>★ 合計</span></div>
+          <div class="mini"><b id="miniBadges">0</b><span>🏅 バッジ</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title"><h2>ステージ</h2><span id="pathClef"></span></div>
+    <div class="path-wrap">
+      <div class="card lane"><h3>読む力の道</h3><p>音符1つから和音まで。20問で、正確さと速さを競います。</p><div id="pathMain" class="path"></div></div>
+      <div class="card lane"><h3>音程の道</h3><p>「4音」をクリアすると開きます。音と音の間隔で、速く読む練習です。</p><div id="pathIv" class="path"></div></div>
+    </div>
+
+    <div class="section-title"><h2>ほかの練習</h2></div>
+    <div class="extras">
+      <button type="button" class="tile" data-goto-view="songs" data-genre="sight"><span class="ic" style="background:#fff1d6">📅</span><span><b>今日の初見チャレンジ</b><small>毎日0時に新しい曲。はじめて見る楽譜を止まらずに。</small></span></button>
+      <button type="button" class="tile" data-goto-view="songs"><span class="ic" style="background:#eeebfe">🎼</span><span><b>曲で練習する</b><small>クラシック・民謡・ジャズ。右手→左手→両手→テンポ。</small></span></button>
+      <button type="button" class="tile" data-start="free"><span class="ic" style="background:#dcfce7">∞</span><span><b>自由練習</b><small>単音が終わりなく出ます。ウォーミングアップに。</small></span></button>
+    </div>
+
+    <div id="premiumBanner" class="premium" hidden>
+      <div><h2>すべての曲を、<em>最後まで</em>。</h2><p id="premiumText">有料版なら、曲の全フレーズ・全曲通し・テンポ100%まで練習できます。</p></div>
+      <button type="button" class="gold big" data-paywall="banner">有料版について</button>
+    </div>
+  </div>
+</section>
+
+<!-- 練習 -->
+<section id="playView" class="view" aria-label="練習">
+  <div class="play">
+    <div class="playbar">
+      <button type="button" class="icon" id="playClose" aria-label="ホームへ戻る">✕</button>
+      <div class="ttl"><b id="playTitle"></b><div class="prog" role="progressbar" aria-label="進み具合"><i id="playProg"></i></div></div>
+      <div class="play-score" aria-live="off"><b id="playScore">0</b><small id="playSub">点</small></div>
+    </div>
+    <section class="stage" aria-label="出題">
+      <div id="stageHidden" hidden><div id="starTotal"></div><div id="stageBar" role="group" aria-label="ステージ"></div></div>
+      <div id="songPanel" class="song-panel" hidden>
+        <select id="songSel" hidden aria-label="曲"></select>
+        <select id="stepSel" aria-label="ステップ"></select>
         <button id="startBtn" type="button" hidden>スタート</button>
-        <button id="demoBtn" class="ghost" type="button">お手本を聴く</button>
-        <button id="retryBtn" class="ghost" type="button">はじめから</button>
+        <button id="demoBtn" class="ghost" type="button">♪ お手本</button>
+        <button id="retryBtn" class="ghost" type="button">↺ はじめから</button>
+        <button id="unlockBtn" class="gold" type="button" data-paywall="song" hidden>🔒 続きを練習する</button>
+        <div id="songCredit" class="song-credit"></div>
       </div>
-      <div id="songCredit" class="song-credit"></div>
-    </div>
-    <div id="stageInfo" class="stage-info" aria-live="polite"></div>
-    <div id="judgeLayer" aria-hidden="true"></div>
-    <div id="result" class="result" aria-live="polite" hidden></div>
-    <div id="staff" role="img" aria-label="出題された音符"></div>
-    <div class="kb-wrap" aria-label="画面の鍵盤"><div id="kb" class="kb"></div></div>
-    <div id="kbNav" class="kb-nav" role="scrollbar" aria-controls="kb" aria-label="鍵盤の全体図（ドラッグで左右に動かす）" hidden>
-      <div id="kbNavKeys"></div>
-      <div id="kbNavShadeL" class="kb-nav-shade" style="left:0"></div>
-      <div id="kbNavShadeR" class="kb-nav-shade" style="right:0"></div>
-      <div id="kbNavWin" class="kb-nav-win"></div>
-    </div>
-    <div id="nameHint" class="name-hint"></div>
-    <div id="feedback" class="feedback" aria-live="polite"></div>
-    <div class="controls">
-      <button id="skipBtn" class="ghost" type="button">答えを見て次へ</button>
-    </div>
-    <div class="kb-note">MIDIがないときは、画面の鍵盤を押して弾けます。<span class="pc-only">PCのキー（A W S E D F T G Y H U J K＝ド〜ド、Z / X でオクターブを下げる / 上げる）でも弾けます。いまPCキーで弾ける音は <b id="pcOctLabel">C4〜C5</b>（鍵盤の下に線のあるところ）。</span></div>
-  </section>
-
-  <section class="card" aria-label="成績">
-    <div class="stats">
-      <div class="stat"><b id="stCount">0</b><span>正解した数</span></div>
-      <div class="stat"><b id="stAcc">–</b><span>一発正解率</span></div>
-      <div class="stat"><b id="stTime">–</b><span>平均反応時間</span></div>
-      <div class="stat"><b id="stStreak">0</b><span>連続一発正解</span></div>
-    </div>
-    <div id="weak" class="weak"></div>
-    <div id="badges" class="badges"></div>
-  </section>
-
-  <section class="card settings" aria-label="設定">
-    <h2>設定</h2>
-    <div class="field">
-      <span>音部記号</span>
-      <div class="seg" id="clefSeg">
-        <button type="button" data-v="treble">ト音</button>
-        <button type="button" data-v="bass">ヘ音</button>
-        <button type="button" data-v="grand">大譜表</button>
+      <div id="stageInfo" class="stage-info" aria-live="polite"></div>
+      <div id="judgeLayer" aria-hidden="true"></div>
+      <div id="result" class="result" aria-live="polite" hidden></div>
+      <div id="sheet" class="sheet"><div id="staff" role="img" aria-label="出題された音符"></div></div>
+      <div id="nameHint" class="name-hint"></div>
+      <div id="feedback" class="feedback" aria-live="polite"></div>
+      <div class="kb-box">
+        <div class="kb-wrap" aria-label="画面の鍵盤"><div id="kb" class="kb"></div></div>
+        <div id="kbNav" class="kb-nav" role="scrollbar" aria-controls="kb" aria-label="鍵盤の全体図（ドラッグで左右に動かす）" hidden>
+          <div id="kbNavKeys"></div>
+          <div id="kbNavShadeL" class="kb-nav-shade" style="left:0"></div>
+          <div id="kbNavShadeR" class="kb-nav-shade" style="right:0"></div>
+          <div id="kbNavWin" class="kb-nav-win"></div>
+        </div>
       </div>
-    </div>
-    <label class="field">
-      <span>音域</span>
-      <select id="rangeSel">
-        <option value="1">譜表の中だけ</option>
-        <option value="3">加線1本まで</option>
-        <option value="5">加線2本まで</option>
-        <option value="7">加線3本まで</option>
-      </select>
-    </label>
-    <label class="field">
-      <span>音名の表記</span>
-      <select id="namingSel">
-        <option value="ja">ドレミ</option>
-        <option value="en">CDE</option>
-      </select>
-    </label>
-    <label class="field">
-      <span>鍵盤の動かし方（全体図）</span>
-      <select id="navSel">
-        <option value="keys">鍵盤をつかんで動かす</option>
-        <option value="frame">枠をつかんで動かす</option>
-      </select>
-    </label>
-    <div class="field">
-      <span>出題</span>
-      <label class="check"><input type="checkbox" id="accChk">♯・♭も出す</label>
-      <label class="check"><input type="checkbox" id="octChk">オクターブ違いも正解にする</label>
-      <label class="check"><input type="checkbox" id="hintChk">はじめから音名を見せる</label>
-    </div>
-    <label class="field">
-      <span>1日の目標</span>
-      <select id="goalSel">
-        <option value="300">5分</option>
-        <option value="600">10分</option>
-        <option value="1200">20分</option>
-        <option value="1800">30分</option>
-      </select>
-    </label>
-    <div class="field" id="planField" hidden>
-      <span>有料版</span>
-      <div id="planStatus" class="plan-status"></div>
-      <div id="planBtns" class="controls plan-btns"></div>
-      <div class="plan-legal">申し込むと<a href="https://habatakijuku.com/legal/terms.html" target="_blank" rel="noopener">利用規約</a>に同意したものとみなします。<a href="https://habatakijuku.com/legal/tokushoho.html" target="_blank" rel="noopener">特定商取引法に基づく表記</a>・<a href="https://habatakijuku.com/legal/privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a></div>
-    </div>
-    <div class="field">
-      <span>記録</span>
-      <button id="resetBtn" class="ghost" type="button">苦手の記録を消す</button>
-    </div>
-  </section>
+      <div class="controls">
+        <button id="skipBtn" class="ghost" type="button">答えを見て次へ</button>
+      </div>
+      <div class="kb-note"><span id="midiHelp"></span> <span class="pc-only">PCのキー A W S E D F T G Y H U J K（ド〜ド）、Z / X でオクターブ移動。いま弾ける音は <b id="pcOctLabel">C4〜C5</b>。</span></div>
+    </section>
+  </div>
+</section>
 
-</main>
+<!-- 曲 -->
+<section id="songsView" class="view" aria-label="曲">
+  <div class="page">
+    <h1>曲</h1>
+    <p class="lead">右手 → 左手 → 両手 → テンポに合わせる、の順に1曲を仕上げます。</p>
+    <div id="songLib"></div>
+  </div>
+</section>
+
+<!-- 記録 -->
+<section id="recordsView" class="view" aria-label="記録">
+  <div class="page">
+    <h1>記録</h1>
+    <p class="lead">この練習（今回ページを開いてから）の成績と、集めたバッジ。</p>
+    <div class="card" aria-label="成績">
+      <div class="stats">
+        <div class="stat"><b id="stCount">0</b><span>正解した数</span></div>
+        <div class="stat"><b id="stAcc">–</b><span>一発正解率</span></div>
+        <div class="stat"><b id="stTime">–</b><span>平均反応時間</span></div>
+        <div class="stat"><b id="stStreak">0</b><span>連続一発正解</span></div>
+      </div>
+      <div id="weak" class="weak"></div>
+    </div>
+    <div class="section-title"><h2>バッジ</h2></div>
+    <div class="card"><div id="badges" class="badges"></div></div>
+    <div class="records-link"><a href="/mypage/"><button type="button" tabindex="-1">くわしい記録（マイページ）を見る →</button></a></div>
+  </div>
+</section>
 
 <footer>MIDI入力は Chrome / Edge で使えます（Safari は非対応）。<br><a href="https://habatakijuku.com/">羽ばたき塾</a>・<a href="https://habatakijuku.com/legal/tokushoho.html">特定商取引法に基づく表記</a>・<a href="https://habatakijuku.com/legal/terms.html">利用規約</a>・<a href="https://habatakijuku.com/legal/privacy.html">プライバシーポリシー</a></footer>
 
-<dialog id="acctDlg" class="acct-dlg" aria-labelledby="acctTitle">
-  <h2 id="acctTitle">読譜トレーナー 有料版</h2>
-  <p id="acctMsg"></p>
-  <div data-view="register">
-    <p>表示名（ニックネーム）を決めて、この端末にパスキーを作ります。</p>
-    <input id="acctName" maxlength="30" placeholder="ニックネーム" autocomplete="nickname">
-    <div class="controls"><button id="acctRegisterBtn" type="button">パスキーを作って続ける</button></div>
-    <p>前に作った方は <button type="button" class="link" data-goto="login">パスキーでログイン</button></p>
+<!-- 設定 -->
+<dialog id="settingsDlg" class="sheet-dlg" aria-labelledby="settingsTitle">
+  <div class="dlg-in">
+    <div class="dlg-head"><h2 id="settingsTitle">設定</h2><button type="button" class="icon" data-close aria-label="閉じる">✕</button></div>
+    <section class="settings" aria-label="設定">
+      <h3>出題</h3>
+      <div class="field wide">
+        <span>音部記号</span>
+        <div class="seg" id="clefSeg">
+          <button type="button" data-v="treble">ト音記号</button>
+          <button type="button" data-v="bass">ヘ音記号</button>
+          <button type="button" data-v="grand">大譜表</button>
+        </div>
+      </div>
+      <label class="field">
+        <span>音域</span>
+        <select id="rangeSel">
+          <option value="1">譜表の中だけ</option>
+          <option value="3">加線1本まで</option>
+          <option value="5">加線2本まで</option>
+          <option value="7">加線3本まで</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>音名の表記</span>
+        <select id="namingSel">
+          <option value="ja">ドレミ</option>
+          <option value="en">CDE</option>
+        </select>
+      </label>
+      <div class="field wide">
+        <label class="check"><input type="checkbox" id="accChk">♯・♭も出す</label>
+        <label class="check"><input type="checkbox" id="octChk">オクターブ違いも正解にする（クリアは記録しません）</label>
+        <label class="check"><input type="checkbox" id="hintChk">はじめから音名を見せる</label>
+      </div>
+      <h3>練習</h3>
+      <label class="field">
+        <span>1日の目標</span>
+        <select id="goalSel">
+          <option value="300">5分</option>
+          <option value="600">10分</option>
+          <option value="1200">20分</option>
+          <option value="1800">30分</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>鍵盤の全体図</span>
+        <select id="navSel">
+          <option value="keys">鍵盤をつかんで動かす</option>
+          <option value="frame">枠をつかんで動かす</option>
+        </select>
+      </label>
+      <div class="field wide" id="planField" hidden>
+        <h3 style="margin:6px 0 0">アカウント・有料版</h3>
+        <div id="planStatus" class="plan-status"></div>
+        <div id="planBtns" class="controls plan-btns"></div>
+        <div class="plan-legal">申し込むと<a href="https://habatakijuku.com/legal/terms.html" target="_blank" rel="noopener">利用規約</a>に同意したものとみなします。<a href="https://habatakijuku.com/legal/tokushoho.html" target="_blank" rel="noopener">特定商取引法に基づく表記</a>・<a href="https://habatakijuku.com/legal/privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a></div>
+      </div>
+      <div class="field wide">
+        <h3 style="margin:6px 0 0">MIDI</h3>
+        <div id="midiDetail" class="plan-status"></div>
+      </div>
+      <div class="field wide">
+        <button id="resetBtn" class="ghost" type="button">苦手な音の記録を消す</button>
+      </div>
+    </section>
   </div>
-  <div data-view="login" hidden>
-    <p>この端末（または同じアカウントの端末）に保存したパスキーでログインします。</p>
-    <div class="controls"><button id="acctLoginBtn" type="button">パスキーでログイン</button></div>
-    <p>パスキーをなくした方は <button type="button" class="link" data-goto="recover">復旧コードを使う</button>／初めての方は <button type="button" class="link" data-goto="register">パスキーを作る</button></p>
+</dialog>
+
+<!-- 有料版の案内 -->
+<dialog id="payDlg" class="sheet-dlg" aria-labelledby="payTitle">
+  <div class="dlg-in">
+    <div class="pay-hero">
+      <div class="dlg-head" style="margin:0"><span class="crown" aria-hidden="true">👑</span><span style="flex:1"></span><button type="button" class="icon" data-close aria-label="閉じる" style="background:rgba(255,255,255,.18);color:#fff">✕</button></div>
+      <h2 id="payTitle">読譜トレーナー 有料版</h2>
+      <p id="payLead">好きな曲を、最後まで弾けるところまで。</p>
+    </div>
+    <ul class="benefits" id="payBenefits"></ul>
+    <div class="price-card"><div><small>月額</small><br><b>480<span>円</span></b></div><div style="text-align:right"><small>いつでも解約できます<br>解約しても、期間の終わりまで使えます</small></div></div>
+    <div class="controls"><button type="button" class="gold big" id="payBuy" style="width:100%">有料版にする</button></div>
+    <div class="trust">
+      <span>🔒 お支払いは Stripe（世界中で使われている決済サービス）で行います。カード番号はこのサイトに届きません。</span>
+      <span>ログインはパスキー（指紋・顔・PIN）。パスワードもメールアドレスも要りません。</span>
+      <span><a href="https://habatakijuku.com/legal/terms.html" target="_blank" rel="noopener">利用規約</a>・<a href="https://habatakijuku.com/legal/tokushoho.html" target="_blank" rel="noopener">特定商取引法に基づく表記</a>・<a href="https://habatakijuku.com/legal/privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a></span>
+    </div>
   </div>
-  <div data-view="recover" hidden>
-    <p>登録したときにメモした復旧コードを入れてください。</p>
-    <input id="acctCode" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off">
-    <div class="controls"><button id="acctRecoverBtn" type="button">復旧コードでログイン</button></div>
+</dialog>
+
+<!-- 使い方 -->
+<dialog id="helpDlg" class="sheet-dlg" aria-labelledby="helpTitle">
+  <div class="dlg-in help">
+    <div class="dlg-head"><h2 id="helpTitle">使い方とクリア条件</h2><button type="button" class="icon" data-close aria-label="閉じる">✕</button></div>
+    <p>楽譜に出た音符を見て、その音の鍵盤を弾く練習です。MIDIピアノ・画面の鍵盤・PCのキーボードのどれでも弾けます。</p>
+    <h3>ステージ</h3>
+    <ul>
+      <li><b>単音〜4音</b>：音符が1〜4個ならびます。左から順に弾きます。音が増えるほど、いま弾く音より先の音を読んでおく力がつきます。</li>
+      <li><b>音程（2・3度〜6〜8度）</b>：「4音」をクリアすると開く、もう1つの道です。はじめの音だけ名前が出ます。あとは前の音から「3度上」「5度下」と間隔で読んで弾きます。</li>
+      <li><b>重音・和音・転回形</b>：縦に重なった音を同時に押さえます（画面の鍵盤・PCキーは順に押せばかまいません）。転回形は、和音のいちばん下の音を1オクターブ上に移した形です。</li>
+      <li><b>曲・自由練習</b>：いつでも使えます。自由練習は単音が終わりなく出ます。</li>
+      <li><b>初見チャレンジ</b>：毎日0時に新しくなる自動作曲の練習曲（Lv1〜4）。はじめて見る楽譜を止まらずに読むのが初見の練習です。だれでも無料で弾けます。</li>
+    </ul>
+    <h3>クリア条件</h3>
+    <p>1ステージは20問。<b>一発正解が16問以上</b>で、<b>1音あたりの平均が3秒以内</b>（和音のステージは1和音あたり4秒以内）ならクリアで、次のステージが開きます。進み具合はト音記号・ヘ音記号・大譜表で別々です。「オクターブ違いも正解」にしているあいだは、クリアを記録しません。</p>
+    <h3>なぜ効くのか</h3>
+    <p>楽譜を読むのが遅いのは、多くの場合「下から2本目の線だから…ソ」と線を数えて音名を出しているからです。音符の位置を見たら、数えずにすぐ鍵盤の位置が出る状態になるまで、短い問題をたくさんくり返すのがいちばんの近道です。まちがえた音や時間がかかった音ほど、多く出題されます。</p>
   </div>
-  <div data-view="recovery" hidden>
-    <p>パスキーをなくしたときに使う<strong>復旧コード</strong>です。この画面にしか出ないので、メモして大切に保管してください。</p>
-    <p id="acctRecovery" class="acct-code"></p>
-    <div class="controls"><button id="acctRecoveryDone" type="button">メモしました</button></div>
+</dialog>
+
+<!-- はじめての方へ -->
+<dialog id="obDlg" class="sheet-dlg" aria-labelledby="obTitle">
+  <div class="dlg-in">
+    <div class="ob-dots" id="obDots"><i class="on"></i><i></i><i></i></div>
+    <div class="ob-step" data-ob="0">
+      <div class="ob-hero"><svg width="64" height="64"><use href="#logo"/></svg></div>
+      <h2 id="obTitle">ようこそ、読譜トレーナーへ</h2>
+      <p>楽譜の音符を見て、すぐ鍵盤が浮かぶようになる練習です。まず、いまの読み方を教えてください。</p>
+      <div class="choices">
+        <button type="button" class="choice" data-ext="1"><span class="ic">🌱</span><span><b>はじめて・ほとんど読めない</b><small>五線の中の音から始めます</small></span></button>
+        <button type="button" class="choice" data-ext="3"><span class="ic">🎹</span><span><b>線を数えれば読める</b><small>加線1本までの音で練習します</small></span></button>
+        <button type="button" class="choice" data-ext="5"><span class="ic">🚀</span><span><b>もっと速く読みたい</b><small>加線2本までの広い音域で練習します</small></span></button>
+      </div>
+    </div>
+    <div class="ob-step" data-ob="1" hidden>
+      <h2>どの楽譜を読みますか？</h2>
+      <p>あとから設定（⚙）でいつでも変えられます。</p>
+      <div class="choices">
+        <button type="button" class="choice" data-clef="treble"><span class="ic">𝄞</span><span><b>ト音記号</b><small>右手のメロディ。まずはここから</small></span></button>
+        <button type="button" class="choice" data-clef="bass"><span class="ic">𝄢</span><span><b>ヘ音記号</b><small>左手の低い音</small></span></button>
+        <button type="button" class="choice" data-clef="grand"><span class="ic">🎼</span><span><b>大譜表（両方）</b><small>ピアノの楽譜そのまま</small></span></button>
+      </div>
+    </div>
+    <div class="ob-step" data-ob="2" hidden>
+      <h2>何で弾きますか？</h2>
+      <p>どれでも練習できます。</p>
+      <div class="choices">
+        <button type="button" class="choice" data-input="midi"><span class="ic">🎹</span><span><b>MIDIピアノ・電子ピアノ</b><small>USBやBluetoothでつなぐと自動で認識します（Chrome / Edge）</small></span></button>
+        <button type="button" class="choice" data-input="screen"><span class="ic">📱</span><span><b>画面の鍵盤・PCのキーボード</b><small>機材がなくてもすぐ始められます</small></span></button>
+      </div>
+    </div>
   </div>
-  <p id="acctError" class="acct-error" hidden></p>
-  <div class="controls"><button id="acctClose" type="button" class="ghost">閉じる</button></div>
+</dialog>
+
+<!-- アカウント（パスキー） -->
+<dialog id="acctDlg" class="sheet-dlg" aria-labelledby="acctTitle">
+  <div class="dlg-in">
+    <div class="dlg-head"><h2 id="acctTitle">読譜トレーナー アカウント</h2><button type="button" class="icon" id="acctClose" aria-label="閉じる">✕</button></div>
+    <p id="acctMsg"></p>
+    <div data-view="register">
+      <p>表示名（ニックネーム）を決めて、この端末にパスキーを作ります。</p>
+      <input id="acctName" maxlength="30" placeholder="ニックネーム" autocomplete="nickname">
+      <div class="controls"><button id="acctRegisterBtn" type="button">パスキーを作って続ける</button></div>
+      <p style="margin-top:14px">前に作った方は <button type="button" class="link" data-goto="login">パスキーでログイン</button></p>
+    </div>
+    <div data-view="login" hidden>
+      <p>この端末（または同じアカウントの端末）に保存したパスキーでログインします。</p>
+      <div class="controls"><button id="acctLoginBtn" type="button">パスキーでログイン</button></div>
+      <p style="margin-top:14px">パスキーをなくした方は <button type="button" class="link" data-goto="recover">復旧コードを使う</button>／初めての方は <button type="button" class="link" data-goto="register">パスキーを作る</button></p>
+    </div>
+    <div data-view="recover" hidden>
+      <p>登録したときにメモした復旧コードを入れてください。</p>
+      <input id="acctCode" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off">
+      <div class="controls"><button id="acctRecoverBtn" type="button">復旧コードでログイン</button></div>
+    </div>
+    <div data-view="recovery" hidden>
+      <p>パスキーをなくしたときに使う<strong>復旧コード</strong>です。この画面にしか出ないので、メモして大切に保管してください。</p>
+      <p id="acctRecovery" class="acct-code"></p>
+      <div class="controls"><button id="acctRecoveryDone" type="button">メモしました</button></div>
+    </div>
+    <p id="acctError" class="acct-error" hidden></p>
+  </div>
 </dialog>
 
 <script src="songs.js?v=4"></script>
-<script src="game.js?v=4"></script>
-<script src="song-mode.js?v=9"></script>
+<script src="game.js?v=5"></script>
+<script src="song-mode.js?v=10"></script>
 <script src="record-sync.js?v=1"></script>
-<script src="billing.js?v=5"></script>
+<script src="billing.js?v=6"></script>
+<script src="ui.js?v=1"></script>
 <script>
 'use strict';
 const VF = Vex.Flow;
@@ -1014,6 +1411,12 @@ const noteOff = (midi) => {
 };
 
 const handleNote = (midi) => {
+  // 設定などの画面が開いているときは弾いても進めない。ホームなどで弾いたら練習の画面へ移る
+  if (document.querySelector('dialog[open]')) return;
+  if (document.body.dataset.view !== 'play') {
+    showView('play');
+    return;
+  }
   practiceTick();
   if (progress.mode === 'song') {
     songNoteOn(midi);
@@ -1102,11 +1505,13 @@ const renderStageBar = () => {
   $('starTotal').innerHTML =
     `★ <b>${stageGot + song.got}</b> / ${stageMax + song.max}　` +
     `<small>ステージ ${stageGot}/${stageMax}（${CLEF_NAME[settings.clef]}）・曲 ${song.got}/${song.max}</small>`;
+  renderHome();
 };
 
 const updateStageInfo = () => {
   if (progress.mode === 'free') {
     $('stageInfo').innerHTML = '自由練習（単音・終わりなし）';
+    updatePlayBar();
     return;
   }
   const rule = timeRule();
@@ -1114,10 +1519,10 @@ const updateStageInfo = () => {
   const per = units ? `${(stageRun.time / units / 1000).toFixed(1)}秒` : '–';
   $('stageInfo').innerHTML =
     `${stageTitle(progress.mode)}　<b>${stageRun.done} / ${STAGE_Q}</b>問　一発正解 <b>${stageRun.first}</b>　${rule.label} <b>${per}</b>` +
-    `<br>得点 <b>${stageRun.score}</b>${stageRun.combo >= 2 ? `　<b>${stageRun.combo}</b>コンボ` : ''}` +
     `${starsOf(stageKey(progress.mode)) ? `　自己ベスト ${starText(starsOf(stageKey(progress.mode)))} ${bestOf(stageKey(progress.mode)).score}点` : ''}` +
     `<br>クリア（★1）: 一発正解${CLEAR_FIRST}問以上・${rule.label}平均${rule.sec}秒以内` +
     (stageRun.oct ? '<br>オクターブ違いも正解にしているので、クリアは記録しません' : '');
+  updatePlayBar();
 };
 
 const startStage = (mode) => {
@@ -1307,10 +1712,14 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ---- MIDI ----
+// 上のバーには短く、くわしい説明は設定と鍵盤の下に出す
 const setMidiStatus = (cls, text) => {
   const el = $('midiStatus');
   el.className = 'midi-status' + (cls ? ' ' + cls : '');
-  el.textContent = text;
+  el.textContent = cls === 'on' ? 'MIDI 接続中' : cls === 'off' ? 'MIDIなし' : 'MIDIを確認中';
+  el.title = text;
+  $('midiDetail').textContent = text;
+  $('midiHelp').textContent = cls === 'on' ? text : 'MIDIがないときは、画面の鍵盤を押して弾けます。';
 };
 
 const onMidiMessage = (e) => {
@@ -1343,13 +1752,13 @@ const initMidi = async () => {
 };
 
 // ---- 開始 ----
-if (!Object.values(progress.clears).some((n) => n > 0) && !Object.keys(noteStats).length) $('intro').open = true;
 syncSettingsUI();
 initSongUI();
 ensureSightSongs();
 buildKeyboard();
 startStage(progress.mode);
 initBilling();
+initUI();
 renderDaily();
 renderBadges();
 setInterval(renderDaily, 30 * 1000);

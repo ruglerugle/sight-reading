@@ -125,6 +125,7 @@ const renderPlan = () => {
   }
   $('planStatus').textContent = status;
   $('planBtns').innerHTML = btns;
+  renderHome();
 };
 
 // ---- 申し込み・ログインの画面 ----
@@ -241,6 +242,7 @@ const handleCheckoutReturn = async () => {
   history.replaceState(null, '', location.pathname);
   if (result === 'cancel') {
     setFeedback('', '申し込みは取り消されました。');
+    toast('申し込みは取り消されました');
     return;
   }
   const sessionId = q.get('session_id');
@@ -249,6 +251,7 @@ const handleCheckoutReturn = async () => {
     if (account.paid) {
       await loadFullSongs();
       setFeedback('ok', 'ありがとうございます。有料版になりました。すべての曲を最後まで練習できます。');
+      toast('有料版になりました。すべての曲を最後まで練習できます');
     } else {
       setFeedback('', 'お支払いの確認に時間がかかっています。少ししてから開き直してください。');
     }
