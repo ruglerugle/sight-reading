@@ -113,7 +113,7 @@ const renderContinue = () => {
       `<p>${step ? step.label : ''}</p>` +
       `<span class="stars-line">★ ${ss.got} / ${ss.max}</span>` +
       '<button type="button" class="big" data-continue="song">▶ 練習を続ける</button>' +
-      '<img class="chara chara-hero" src="/img/chara/hello.svg" alt="" width="92" height="83">';
+      '<img class="chara chara-hero" src="/img/chara/hello.svg?v=3" alt="" width="92" height="83">';
     return;
   }
   const m = typeof progress.mode === 'number' && isUnlocked(progress.mode) ? progress.mode : mainNext();
@@ -124,7 +124,7 @@ const renderContinue = () => {
     `<p>${STAGE_DESC[m]}。20問・一発正解16問以上でクリア</p>` +
     `<span class="stars-line">${starText(stars)}</span>` +
     `<button type="button" class="big" data-continue="${m}">▶ ${stars ? 'もう一度挑戦' : 'スタート'}</button>` +
-    `<img class="chara chara-hero" src="/img/chara/${stars ? 'happy' : 'guide'}.svg" alt="" width="92" height="83">`;
+    `<img class="chara chara-hero" src="/img/chara/${stars ? 'happy' : 'guide'}.svg?v=3" alt="" width="92" height="83">`;
 };
 
 const renderPath = () => {
