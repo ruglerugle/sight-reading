@@ -112,7 +112,8 @@ const renderContinue = () => {
       `<span class="kicker">つづきから　♪ 曲</span><h2>${song.title}</h2>` +
       `<p>${step ? step.label : ''}</p>` +
       `<span class="stars-line">★ ${ss.got} / ${ss.max}</span>` +
-      '<button type="button" class="big" data-continue="song">▶ 練習を続ける</button>';
+      '<button type="button" class="big" data-continue="song">▶ 練習を続ける</button>' +
+      '<img class="chara chara-hero" src="/img/chara/hello.svg" alt="" width="150" height="150">';
     return;
   }
   const m = typeof progress.mode === 'number' && isUnlocked(progress.mode) ? progress.mode : mainNext();
@@ -122,7 +123,8 @@ const renderContinue = () => {
     `<h2>${stageTitle(m)}${isIvStage(m) ? '' : `　${STAGES[m - 1].name}`}</h2>` +
     `<p>${STAGE_DESC[m]}。20問・一発正解16問以上でクリア</p>` +
     `<span class="stars-line">${starText(stars)}</span>` +
-    `<button type="button" class="big" data-continue="${m}">▶ ${stars ? 'もう一度挑戦' : 'スタート'}</button>`;
+    `<button type="button" class="big" data-continue="${m}">▶ ${stars ? 'もう一度挑戦' : 'スタート'}</button>` +
+    `<img class="chara chara-hero" src="/img/chara/${stars ? 'happy' : 'guide'}.svg" alt="" width="150" height="150">`;
 };
 
 const renderPath = () => {

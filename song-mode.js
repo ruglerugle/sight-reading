@@ -478,6 +478,7 @@ const finishSongStep = (stars, lines) => {
     resultHead({
       title: clear ? (last ? (r.song.locked ? 'お試しの範囲をクリア！' : 'この曲をマスターしました！') : 'クリア！') : 'もう一度',
       stars,
+      clear,
       score: r.score,
       best,
       lines: [r.step.label, ...lines, `最大コンボ <b>${r.maxCombo}</b>`],

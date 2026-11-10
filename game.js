@@ -109,7 +109,10 @@ const confetti = (amount = 110) => {
 
 // ---- 結果画面 ----
 // 上の部分（★・見出し・点数・自己ベスト）。lines は下に並べる説明の行
-const resultHead = ({ title, stars, score, best, lines }) =>
+// 結果のキャラクター：★3=大喜び、★1〜2=にっこり、クリアならず=がんばろう
+const resultChara = (stars, clear) => (!clear ? 'cheer' : stars >= 3 ? 'celebrate' : 'happy');
+const resultHead = ({ title, stars, score, best, lines, clear = stars > 0 }) =>
+  `<img class="chara chara-result" src="/img/chara/${resultChara(stars, clear)}.svg" alt="" width="96" height="96">` +
   `<div class="stars" role="img" aria-label="★${stars}つ">${[1, 2, 3].map((i) =>
     `<span class="${i <= stars ? 'on' : ''}" style="--d:${0.15 + i * 0.25}s">★</span>`).join('')}</div>` +
   `<h2>${title}</h2>` +
