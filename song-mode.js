@@ -10,7 +10,7 @@ const KEY_ACC = { C: {}, Am: {}, G: { 3: 1 }, D: { 3: 1, 0: 1 }, F: { 6: -1 } };
 const TEMPO_WINDOW = 150; // テンポの判定：このミリ秒以内のずれならちょうど
 const SONG_W = 360;       // 曲の譜面の幅（viewBox）
 
-const SONG_GENRES = [['sight', '初見チャレンジ（毎日かわる・自動作曲）'], ['classic', 'クラシック・民謡'], ['jazz', 'ジャズ（オリジナル練習曲）']];
+const SONG_GENRES = [['sight', '初見チャレンジ（毎日かわる・自動作曲）'], ['classic', 'クラシック・民謡'], ['jazz', 'ジャズ（オリジナル練習曲）'], ['band', 'バンドの曲（オリジナル・ジャンル別）']];
 const HAND_SETS = { rh: ['rh'], lhs: ['lhs'], bothS: ['rh', 'lhs'], lh: ['lh'], both: ['rh', 'lh'] };
 const HAND_LABEL = { rh: '右手', lhs: '左手（簡易）', bothS: '両手（簡易）', lh: '左手', both: '両手' };
 
