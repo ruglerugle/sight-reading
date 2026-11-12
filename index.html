@@ -524,6 +524,7 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
     <div class="extras">
       <button type="button" class="tile" data-goto-view="songs" data-genre="sight"><span class="ic" style="background:#fff1d6">📅</span><span><b>今日の初見チャレンジ</b><small>毎日0時に新しい曲。はじめて見る楽譜を止まらずに。</small></span></button>
       <button type="button" class="tile" data-goto-view="songs"><span class="ic" style="background:#eeebfe">🎼</span><span><b>曲で練習する</b><small>クラシック・民謡・ジャズ。右手→左手→両手→テンポ。</small></span></button>
+      <button type="button" class="tile" data-assess><span class="ic" style="background:#fff1d6">🎯</span><span><b>実力テスト</b><small id="assessLast">20問・約3分。いまの読譜の力をレベル1〜10で測り、合うステージまで開けます（無料）</small></span></button>
       <button type="button" class="tile" data-start="free"><span class="ic" style="background:#dcfce7">∞</span><span><b>自由練習</b><small>単音が終わりなく出ます。ウォーミングアップに。</small></span></button>
     </div>
 
@@ -555,6 +556,7 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
         <div id="songCredit" class="song-credit"></div>
       </div>
       <div id="practiceBar" class="song-practice" hidden></div>
+      <div id="assessBanner" hidden></div>
       <div id="stageInfo" class="stage-info" aria-live="polite"></div>
       <div id="judgeLayer" aria-hidden="true"></div>
       <div id="result" class="result" aria-live="polite" hidden></div>
@@ -722,6 +724,8 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
     <h3>練習モード（曲のテンポの段階）</h3>
     <p>テンポに合わせて弾く段階では、<b>速さ</b>（50〜100%）、<b>繰り返す</b>（選んだフレーズを止めるまで。1回ごとに結果を出します）、<b>正しく弾くまで待つ</b>（テンポなしで、正しい音を弾くと進みます）を選べます。練習モードの回は、クリアや★の記録には入りません。</p>
     <p>弾くたびに「早い・遅い」とずれ（ミリ秒）を出し、楽譜の下の帯に並べます（左が早い、右が遅い、白い線が平均）。Good の音符は、早いと青、遅いとオレンジになります。いつも「遅い」と出るときは、設定の「タイミングの補正」で MIDI キーボードの遅れを差し引けます。</p>
+    <h3>実力テスト</h3>
+    <p>ホームの「実力テスト」は20問・約3分。まちがえずに1音3秒以内（和音は4秒以内）に弾けると次の問題が難しくなり、まちがえると易しくなります。最後に、確実に読めたいちばん高い段階をレベル1〜10で出し、その次のステージまで開けます。テストの最中は、ヒントやオクターブ違いの設定は使いません（終わると元に戻ります）。</p>
     <h3>なぜ効くのか</h3>
     <p>楽譜を読むのが遅いのは、多くの場合「下から2本目の線だから…ソ」と線を数えて音名を出しているからです。音符の位置を見たら、数えずにすぐ鍵盤の位置が出る状態になるまで、短い問題をたくさんくり返すのがいちばんの近道です。まちがえた音や時間がかかった音ほど、多く出題されます。</p>
   </div>
@@ -794,6 +798,7 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
 <script src="songs.js?v=4"></script>
 <script src="game.js?v=10"></script>
 <script src="timing.js?v=1"></script>
+<script src="assess.js?v=1"></script>
 <script src="song-mode.js?v=13"></script>
 <script src="record-sync.js?v=1"></script>
 <script src="billing.js?v=6"></script>
@@ -867,7 +872,12 @@ if (!progress.clears || typeof progress.clears !== 'object') {
   progress.clears = { [settings.clef]: progress.cleared || 0 };
 }
 const clearedOf = () => progress.clears[settings.clef] || 0;
-const persist = () => saveStore({ settings, noteStats, progress });
+// 実力テストの最中は、テスト用に変えた設定・ステージを保存しない
+const persist = () => saveStore({
+  settings: assessRun ? { ...settings, ...assessRun.saved } : settings,
+  noteStats,
+  progress: assessRun ? { ...progress, mode: assessRun.savedMode } : progress,
+});
 
 // ---- ステージ ----
 const STAGES = [
@@ -1288,7 +1298,10 @@ const scheduleNext = (ms) => {
 };
 
 const nextQuestion = () => {
-  if (progress.mode !== 'free' && stageRun.done >= STAGE_Q) {
+  if (assessRun) {
+    if (assessRun.st.done) { finishAssess(); return; }
+    applyAssessLevel();
+  } else if (progress.mode !== 'free' && stageRun.done >= STAGE_Q) {
     showResult();
     return;
   }
@@ -1362,6 +1375,7 @@ const completeQuestion = (text) => {
   // 点数：一発正解なら 基本100点＋速さ（最大50点）＋コンボ（最大50点）、まちがえてから正解は30点
   const rule = timeRule();
   const perUnit = ms / rule.units;
+  if (assessRun) assessRun.st.record(misses === 0 && perUnit <= rule.sec * 1000, assessRun.cur.tags);
   stageRun.combo = misses === 0 ? stageRun.combo + 1 : 0;
   stageRun.maxCombo = Math.max(stageRun.maxCombo, stageRun.combo);
   if (stageRun.combo === 20 || stageRun.combo === 50) checkBadges({ combo: stageRun.combo });
@@ -1493,6 +1507,7 @@ const skip = () => {
   session.streak = 0;
   state = 'done';
   stageRun.combo = 0;
+  if (assessRun) assessRun.st.record(false, assessRun.cur.tags);
   popJudge('Miss', 'miss');
   finishQuestion(false, performance.now() - shownAt);
   const rest = current.down ? current.notes : [target()];
@@ -1503,6 +1518,103 @@ const skip = () => {
   updateStats();
   scheduleNext(current.notes.length > 1 ? 2000 : 1200);
 };
+
+// ---- 実力テスト：20問でレベル1〜10を出し、合うステージまで開ける ----
+let assessRun = null;
+// レベルごとの出題（音部記号・加線・♯♭・ステージ）。tags は結果の内訳
+const ASSESS_LEVELS = [
+  null,
+  { clef: 'treble', ext: 0, acc: false, mode: 1, tags: ['ト音記号'], text: 'ト音記号の五線の中の音を、すぐに読めます' },
+  { clef: 'treble', ext: 3, acc: false, mode: 1, tags: ['ト音記号', '加線'], text: 'ト音記号の加線の音まで、すぐに読めます' },
+  { clef: 'bass', ext: 0, acc: false, mode: 1, tags: ['ヘ音記号'], text: 'ヘ音記号の五線の中の音も読めます' },
+  { clef: 'bass', ext: 3, acc: false, mode: 1, tags: ['ヘ音記号', '加線'], text: 'ヘ音記号の加線の音まで読めます' },
+  { clef: 'grand', ext: 3, acc: false, mode: 1, tags: ['大譜表'], text: '大譜表（ト音記号とヘ音記号がまざる）を読めます' },
+  { clef: 'grand', ext: 3, acc: true, mode: 1, tags: ['大譜表', '♯♭'], text: '♯・♭の付いた音もまちがえずに読めます' },
+  { clef: 'grand', ext: 3, acc: false, mode: 3, tags: ['大譜表', '続けて読む'], text: '3つ続いた音符を、止まらずに読めます' },
+  { clef: 'grand', ext: 3, acc: true, mode: 4, tags: ['♯♭', '続けて読む'], text: '♯・♭まじりの4つの音符を、続けて読めます' },
+  { clef: 'grand', ext: 3, acc: false, mode: 6, tags: ['和音'], text: '和音（三和音）を一目で読めます' },
+  { clef: 'grand', ext: 3, acc: true, mode: 7, tags: ['和音', '♯♭'], text: '転回形や♯♭まじりの和音まで、一目で読めます' },
+];
+const ASSESS_TAGS = ['ト音記号', 'ヘ音記号', '加線', '大譜表', '♯♭', '続けて読む', '和音'];
+// 結果のレベルから、次に練習するとよいステージ
+const assessRec = (L) => {
+  const cfg = ASSESS_LEVELS[Math.min(10, L + 1)] || ASSESS_LEVELS[10];
+  const clef = cfg.clef;
+  const mode = Math.min(CHORD_LAST, cfg.mode);
+  return { clef, mode, label: `おすすめ：${CLEF_NAME[clef]}の${stageTitle(mode)}（${STAGES[mode - 1].name}）を練習する` };
+};
+const renderAssessTile = () => {
+  const el = $('assessLast');
+  const last = Assess.last(progress.assess);
+  if (el && last) el.textContent = `前回 レベル${last.level}（${last.date}）。20問・約3分でもう一度測れます（無料）`;
+};
+const renderAssessBanner = () => {
+  const el = $('assessBanner');
+  el.hidden = !assessRun;
+  if (assessRun) Assess.banner(el, { count: assessRun.st.count, items: assessRun.st.items, onQuit: () => abortAssess(true) });
+};
+const applyAssessLevel = () => {
+  const cfg = ASSESS_LEVELS[assessRun.st.level];
+  const kbChange = settings.clef !== cfg.clef || settings.ext !== cfg.ext;
+  Object.assign(settings, { clef: cfg.clef, ext: cfg.ext, acc: cfg.acc, oct: false, hint: false });
+  progress.mode = cfg.mode;
+  stageRun.done = 0;
+  assessRun.cur = cfg;
+  if (kbChange) buildKeyboard();
+  renderAssessBanner();
+};
+const startAssess = () => {
+  if (assessRun) abortAssess(false);
+  assessRun = {
+    st: Assess.staircase({ items: 20, start: 3 }), starting: true, cur: ASSESS_LEVELS[3],
+    saved: { clef: settings.clef, ext: settings.ext, acc: settings.acc, oct: settings.oct, hint: settings.hint },
+    savedMode: progress.mode,
+  };
+  showView('play');
+  startStage(1);
+  assessRun.starting = false;
+  setFeedback('', '実力テスト：まちがえずに、1音3秒以内（和音は4秒以内）に弾けると、次の問題が難しくなります');
+};
+const endAssess = () => {
+  const r = assessRun;
+  assessRun = null;
+  Object.assign(settings, r.saved);
+  $('assessBanner').hidden = true;
+  return r;
+};
+const abortAssess = (restart = true) => {
+  if (!assessRun) return;
+  const r = endAssess();
+  persist();
+  buildKeyboard();
+  if (restart) startStage(r.savedMode);
+};
+const finishAssess = () => {
+  const r = endAssess();
+  const level = r.st.result();
+  const rec = assessRec(level);
+  // 結果に合わせて、すすめるステージまで開ける（音部記号ごと）
+  const opened = rec.mode - 1;
+  const before = progress.clears[rec.clef] || 0;
+  if (opened > before) progress.clears[rec.clef] = opened;
+  progress.cleared = Math.max(0, ...Object.values(progress.clears));
+  const prev = Assess.last(progress.assess);
+  const parts = r.st.parts();
+  progress.assess = Assess.push(progress.assess, { level, parts });
+  persist();
+  buildKeyboard();
+  startStage(r.savedMode);
+  renderAssessTile();
+  Assess.show({
+    title: '読譜の実力テスト', level, levelText: ASSESS_LEVELS[level].text, prev,
+    parts: ASSESS_TAGS.filter((t) => parts[t]).map((t) => ({ label: t, ...parts[t] })),
+    note: opened > before ? `${CLEF_NAME[rec.clef]}の${stageTitle(rec.mode)}まで開けました。` : '',
+    recommend: { label: rec.label, run: () => { settings.clef = rec.clef; persist(); startFromHome(rec.mode); } },
+  });
+};
+document.addEventListener('click', (e) => {
+  if (e.target instanceof Element && e.target.closest('[data-assess]')) startAssess();
+});
 
 // ---- ステージの進行 ----
 // ステージの地図：カードに名前と自己ベストの★。上に★の合計
@@ -1547,6 +1659,7 @@ const updateStageInfo = () => {
 };
 
 const startStage = (mode) => {
+  if (assessRun && !assessRun.starting) abortAssess(false);
   clearTimeout(nextTimer);
   // 答えている途中の問題は数えない
   if (current && state === 'ask') session.asked = Math.max(0, session.asked - 1);
@@ -1781,6 +1894,7 @@ initSongUI();
 ensureSightSongs();
 buildKeyboard();
 startStage(progress.mode);
+renderAssessTile();
 initBilling();
 initUI();
 renderDaily();
