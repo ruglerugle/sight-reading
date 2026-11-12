@@ -55,6 +55,14 @@ main > * { min-width: 0; }
 .bars .b:hover span { filter: brightness(1.15); }
 .goal-line { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--muted); pointer-events: none; }
 .goal-line em { position: absolute; right: 0; top: -1.3em; font-style: normal; font-size: .72rem; color: var(--muted); background: var(--paper); padding: 0 3px; }
+/* タイミング：0ms の線から上が遅い・下が早い。点が平均、縦棒がばらつき */
+.timing { position: relative; display: grid; grid-template-columns: repeat(30, 1fr); gap: 2px; height: 160px; }
+.timing .zero { position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed var(--muted); pointer-events: none; }
+.timing .zero em { position: absolute; left: 0; top: -1.3em; font-style: normal; font-size: .72rem; color: var(--muted); }
+.timing .lab { position: absolute; right: 0; font-size: .72rem; color: var(--muted); pointer-events: none; }
+.timing .d { position: relative; height: 100%; }
+.timing .d .sd { position: absolute; left: 50%; width: 4px; margin-left: -2px; background: var(--heat2); border-radius: 2px; }
+.timing .d .m { position: absolute; left: 50%; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; background: var(--accent); }
 .axis { display: flex; justify-content: space-between; font-size: .72rem; color: var(--muted); margin-top: 2px; }
 .tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: #fff; font-size: .8rem; padding: 3px 8px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, -120%); }
 .tip[hidden] { display: none; }
@@ -131,6 +139,13 @@ h1 { font-weight: 300; letter-spacing: .08em; }
   </section>
 
   <section class="card">
+    <h2>タイミングのずれ（最近30日・曲のテンポの段階）</h2>
+    <div id="timing" class="timing" role="img" aria-label="日ごとの平均のずれとばらつき"></div>
+    <div id="timingAxis" class="axis"></div>
+    <p class="muted">点がその日の平均のずれ（0ms の線より上は遅め、下は早め）、縦の棒がばらつきです。棒が短いほど、毎回同じタイミングで弾けています。曲の「テンポに合わせる」段階で4音以上弾いた日だけ出します。</p>
+  </section>
+
+  <section class="card">
     <h2>ステージの★と自己ベスト</h2>
     <div style="overflow-x:auto"><table id="stages"></table></div>
   </section>
@@ -159,7 +174,8 @@ h1 { font-weight: 300; letter-spacing: .08em; }
 
 <script src="../songs.js?v=4"></script>
 <script src="../game.js?v=10"></script>
-<script src="../song-mode.js?v=11"></script>
+<script src="../timing.js?v=1"></script>
+<script src="../song-mode.js?v=13"></script>
 <script src="../record-sync.js?v=1"></script>
 <script>
 'use strict';
@@ -258,6 +274,33 @@ const renderCalendar = () => {
   $('cal').innerHTML = cells.join('');
 };
 
+const renderTiming = () => {
+  const all = progress.timing && typeof progress.timing === 'object' ? progress.timing : {};
+  const days = [];
+  for (let i = 29; i >= 0; i--) {
+    const x = new Date();
+    x.setDate(x.getDate() - i);
+    days.push(dayKey(x));
+  }
+  const stats = days.map((k) => {
+    const d = all[k];
+    if (!d || !(d.n >= 4)) return null;
+    const mean = d.sum / d.n;
+    return { mean, sd: Math.sqrt(Math.max(0, d.sq / d.n - mean * mean)), n: d.n };
+  });
+  const signed = (ms) => `${ms >= 0 ? '+' : '−'}${Math.abs(Math.round(ms))}ms`;
+  const range = Math.max(40, ...stats.filter(Boolean).map((x) => Math.abs(x.mean) + x.sd));
+  const y = (ms) => 50 - (ms / range) * 50; // 上が遅い（＋）
+  $('timing').innerHTML = '<div class="zero"><em>0ms</em></div>'
+    + `<span class="lab" style="top:0">遅い +${Math.round(range)}ms</span><span class="lab" style="bottom:0">早い −${Math.round(range)}ms</span>`
+    + days.map((k, i) => {
+      const st = stats[i];
+      if (!st) return '<div class="d"></div>';
+      return `<div class="d" data-tip="${dateLabel(k)}　平均 ${signed(st.mean)}・ばらつき ±${Math.round(st.sd)}ms（${st.n}音）"><span class="sd" style="top:${y(st.mean + st.sd)}%;height:${(st.sd / range) * 100}%"></span><span class="m" style="top:${y(st.mean)}%"></span></div>`;
+    }).join('');
+  $('timingAxis').innerHTML = `<span>${dateLabel(days[0])}</span><span>${dateLabel(days[15])}</span><span>今日</span>`;
+};
+
 const renderBars = () => {
   const d = daily();
   const days = [];
@@ -343,6 +386,7 @@ const renderAll = (me) => {
   renderTiles();
   renderCalendar();
   renderBars();
+  renderTiming();
   renderStages();
   renderSongs();
   renderWeak();

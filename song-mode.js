@@ -434,6 +434,22 @@ const pmeter = {
   reset() { this.o.reset(); },
   setRange(g, p) { this.o.setRange(g, p); },
 };
+// テンポに合わせた回のずれを、日ごとに足しておく（マイページのグラフ用。90日より前は消す）
+const addTimingDay = (offs) => {
+  const xs = offs.filter((x) => Number.isFinite(x));
+  if (!xs.length) return;
+  const all = progress.timing && typeof progress.timing === 'object' ? progress.timing : {};
+  const k = dayKey();
+  const d = { n: 0, sum: 0, sq: 0, ...(all[k] || {}) };
+  xs.forEach((x) => { d.n += 1; d.sum += x; d.sq += x * x; });
+  d.sum = Math.round(d.sum);
+  d.sq = Math.round(d.sq);
+  all[k] = d;
+  const old = new Date();
+  old.setDate(old.getDate() - 90);
+  Object.keys(all).forEach((day) => { if (day < dayKey(old)) delete all[day]; });
+  progress.timing = all;
+};
 // 結果に出す「平均のずれ」の行
 const timingLine = (offs) => {
   const st = Timing.stats(offs);
@@ -465,6 +481,7 @@ const stopLoop = () => {
   const T = r.tempo;
   const hits = r.lapHits + T.hits;
   const total = r.lapTotal + T.expected.filter((x) => x.hit || x.miss).length;
+  addTimingDay(T.expected.filter((x) => x.hit).map((x) => x.offset));
   const offs = [...r.offsets, ...T.expected.filter((x) => x.hit).map((x) => x.offset)];
   finishSongStep(0, [
     `${r.laps}回くり返して、ちょうど <b>${hits}</b> / ${total}音`,
@@ -710,11 +727,14 @@ const tempoTick = () => {
     r.lapHits += T.hits;
     r.lapTotal += T.expected.length;
     r.offsets.push(...T.expected.filter((x) => x.hit).map((x) => x.offset));
+    addTimingDay(T.expected.filter((x) => x.hit).map((x) => x.offset));
+    persist();
     const st = Timing.stats(T.expected.filter((x) => x.hit).map((x) => x.offset));
     $('lapLine').textContent = `${r.laps}回目：ちょうど ${T.hits} / ${T.expected.length}音${st.n ? `・平均のずれ ${Timing.signed(st.mean)}（${Timing.tendency(st.mean)}）` : ''}`;
     startTempo();
     return;
   }
+  addTimingDay(T.expected.filter((x) => x.hit).map((x) => x.offset));
   const stars = tempoStars(T.hits, T.expected.length);
   const total = T.expected.length;
   finishSongStep(stars, [
