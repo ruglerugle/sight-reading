@@ -208,7 +208,11 @@ const noteColor = (n) => {
   if (r.tempo) {
     const xs = r.tempo.byNote.get(n) || [];
     if (xs.some((x) => x.miss)) return css('--ng');
-    if (xs.length && xs.every((x) => x.hit)) return xs.every((x) => x.perfect) ? '#c98a00' : css('--ok');
+    if (xs.length && xs.every((x) => x.hit)) {
+      if (xs.every((x) => x.perfect)) return '#c98a00';
+      const off = xs.find((x) => !x.perfect)?.offset ?? 0;
+      return off < 0 ? '#2f6fb8' : '#d9701c';
+    }
   } else if (idx < r.pos) {
     return css('--ok');
   }
@@ -420,6 +424,54 @@ const syncSongSelects = () => {
   $('songCredit').textContent = `${song.composer}　${song.credit}`;
 };
 
+// ---- 練習モード（速さ・フレーズの繰り返し・正しく弾くまで待つ）と、早い・遅いの帯 ----
+const practiceOf = () => ({ speed: 100, loop: false, from: 0, to: 0, wait: false, ...(settings.practice || {}) });
+let practiceUI = null;
+let pmeterObj = null;
+const pmeter = {
+  get o() { if (!pmeterObj) pmeterObj = Timing.meter($('tmeter'), { good: TEMPO_WINDOW, perfect: TEMPO_PERFECT }); return pmeterObj; },
+  push(dt) { this.o.push(dt); },
+  reset() { this.o.reset(); },
+  setRange(g, p) { this.o.setRange(g, p); },
+};
+// 結果に出す「平均のずれ」の行
+const timingLine = (offs) => {
+  const st = Timing.stats(offs);
+  return st.n ? `平均のずれ <b>${Timing.signed(st.mean)}</b>（${Timing.tendency(st.mean)}）${st.sd !== null ? `・ばらつき ±${Math.round(st.sd)}ms` : ''}` : '';
+};
+const renderPracticeBar = (step, inStep) => {
+  const el = $('practiceBar');
+  el.hidden = step.kind !== 'tempo';
+  if (el.hidden) return;
+  const pr = practiceOf();
+  const last = Math.max(0, inStep.length - 1);
+  pr.from = Math.min(pr.from, last);
+  pr.to = Math.min(Math.max(pr.to, pr.from), last);
+  settings.practice = pr;
+  const opts = {
+    state: pr, waitLabel: '正しく弾くまで待つ',
+    ranges: inStep.map(({ i }, k) => ({ value: k, label: `フレーズ${i + 1}` })),
+    note: (st) => (st.wait ? '待つ：テンポなしで、楽譜の音を正しく弾くと先へ進みます'
+      : st.speed < 100 || st.loop ? `テンポ ${Math.round((step.pct * st.speed) / 100)}%${st.loop ? '・止めるまで繰り返す' : ''}。練習モードの回はクリアの記録には入りません` : ''),
+    onChange: (st) => { settings.practice = st; persist(); if (songRun) startSongStep(songRun.stepIdx); },
+  };
+  if (!practiceUI) practiceUI = Timing.practiceBar(el, opts);
+  else { practiceUI.update(opts); practiceUI.set(pr); }
+};
+// 繰り返しを止めて、それまでの結果を出す
+const stopLoop = () => {
+  const r = songRun;
+  if (!r || !r.tempo) return;
+  const T = r.tempo;
+  const hits = r.lapHits + T.hits;
+  const total = r.lapTotal + T.expected.filter((x) => x.hit || x.miss).length;
+  const offs = [...r.offsets, ...T.expected.filter((x) => x.hit).map((x) => x.offset)];
+  finishSongStep(0, [
+    `${r.laps}回くり返して、ちょうど <b>${hits}</b> / ${total}音`,
+    timingLine(offs),
+  ]);
+};
+
 // ---- ステップの開始・終了 ----
 const startSongStep = (idx) => {
   stopSongAudio();
@@ -428,7 +480,16 @@ const startSongStep = (idx) => {
   const stepIdx = Math.min(Math.max(0, idx), steps.length - 1);
   const step = steps[stepIdx];
   const c = compileSong(song);
-  const events = buildEvents(c, step.hands, step.range);
+  // 練習モード（テンポの段階だけ）：フレーズの繰り返し・正しく弾くまで待つ・速さ
+  const pr = step.kind === 'tempo' ? practiceOf() : null;
+  const inStep = song.phrases.map((ph, i) => ({ ph, i })).filter(({ ph }) => ph[0] >= step.range[0] && ph[1] <= step.range[1]);
+  let loopRange = null;
+  if (pr && pr.loop && inStep.length) {
+    const from = inStep[Math.min(pr.from, inStep.length - 1)];
+    const to = inStep[Math.min(Math.max(pr.to, pr.from), inStep.length - 1)];
+    loopRange = [from.ph[0], to.ph[1]];
+  }
+  const events = buildEvents(c, step.hands, loopRange || step.range);
   const evOf = new Map();
   events.forEach((e, i) => e.notes.forEach((n) => evOf.set(n, i)));
   const onePhrase = song.phrases.some(([a, b]) => a === step.range[0] && b === step.range[1]);
@@ -439,17 +500,24 @@ const startSongStep = (idx) => {
     state: step.kind === 'tempo' ? 'ready' : 'play',
     viewMeasure: events[0].notes[0].measure,
     tempo: null,
+    loopRange, waitMode: !!pr?.wait, practice: !!pr && (pr.wait || pr.loop || pr.speed < 100),
+    laps: 0, offsets: [], lapHits: 0, lapTotal: 0,
   };
+  if (songRun.waitMode) songRun.state = 'play';
+  renderPracticeBar(step, inStep);
   progress.song = { id: song.id, step: stepIdx };
   persist();
   $('result').hidden = true;
   $('staff').hidden = false;
-  $('startBtn').hidden = step.kind !== 'tempo';
+  $('startBtn').hidden = step.kind !== 'tempo' || songRun.waitMode;
   $('startBtn').textContent = 'スタート';
+  $('lapLine').textContent = '';
+  $('tmeter').hidden = step.kind !== 'tempo' || songRun.waitMode;
+  pmeter.reset();
   clearHints();
   showName('');
-  setFeedback('', step.kind === 'tempo'
-    ? '「スタート」を押すと、1小節ぶんカウントしてから始まります'
+  setFeedback('', step.kind === 'tempo' && !songRun.waitMode
+    ? `「スタート」を押すと、1小節ぶんカウントしてから始まります${loopRange ? '（止めるまで繰り返します）' : ''}`
     : '楽譜の音を順に弾いてください（同時に鳴らす音は、全部押せば次へ進みます）');
   renderSong();
   updateSongInfo();
@@ -467,8 +535,9 @@ const finishSongStep = (stars, lines) => {
   clearHints();
   showName('');
   setFeedback('', '');
-  if (clear && !isStepDone(r.song, r.stepIdx)) songRecord(r.song.id).done.push(r.stepIdx);
-  const best = saveBest(songKey(r.song.id, r.stepIdx), r.score, stars);
+  if (!r.practice && clear && !isStepDone(r.song, r.stepIdx)) songRecord(r.song.id).done.push(r.stepIdx);
+  const best = r.practice ? false : saveBest(songKey(r.song.id, r.stepIdx), r.score, stars);
+  if (r.practice) lines = [...lines, '<span class="next-star">練習モードの回なので、クリアの記録には入りません</span>'];
   persist();
   const last = r.stepIdx === r.steps.length - 1;
   const next = r.steps[r.stepIdx + 1];
@@ -476,7 +545,7 @@ const finishSongStep = (stars, lines) => {
   el.className = 'result ' + (clear ? 'clear' : 'fail');
   el.innerHTML =
     resultHead({
-      title: clear ? (last ? (r.song.locked ? 'お試しの範囲をクリア！' : 'この曲をマスターしました！') : 'クリア！') : 'もう一度',
+      title: r.practice ? '練習の結果' : clear ? (last ? (r.song.locked ? 'お試しの範囲をクリア！' : 'この曲をマスターしました！') : 'クリア！') : 'もう一度',
       stars,
       clear,
       score: r.score,
@@ -498,7 +567,7 @@ const finishSongStep = (stars, lines) => {
   syncSongSelects();
   renderStageBar();
   animateResult(el, stars);
-  checkBadges({
+  if (!r.practice) checkBadges({
     clear,
     songClear: clear,
     combo: r.maxCombo,
@@ -541,6 +610,17 @@ const paceNoteOn = (midi) => {
   r.eventMisses = 0;
   clearHints();
   setFeedback('', '');
+  if (r.pos >= r.events.length && r.waitMode && r.loopRange) {
+    r.laps += 1;
+    $('lapLine').textContent = `${r.laps}回目：ミス ${r.misses - (r.lapMiss || 0)}回`;
+    r.lapMiss = r.misses;
+    r.pos = 0;
+    r.viewMeasure = r.events[0].notes[0].measure;
+    renderSong();
+    updateSongInfo();
+    songHint();
+    return;
+  }
   if (r.pos >= r.events.length) {
     renderSong();
     const stars = paceStars(r.misses, r.allowed);
@@ -566,8 +646,9 @@ const startTempo = () => {
   const { c, song } = r;
   const { ctx } = getAudio();
   if (ctx.state === 'suspended') ctx.resume();
-  const bpm = (song.tempo * r.step.pct) / 100;
+  const bpm = (song.tempo * r.step.pct * practiceOf().speed) / 10000;
   const spb = 60 / bpm;
+  pmeter.setRange(TEMPO_WINDOW, TEMPO_PERFECT);
   const clickBeat = song.click || 1;
   const down = c.starts[song.pickup ? 1 : 0]; // 最初の強拍
   const mLen = c.lens[song.pickup ? 1 : 0];
@@ -590,7 +671,8 @@ const startTempo = () => {
   };
   r.pos = 0;
   r.state = 'play';
-  $('startBtn').hidden = true;
+  $('startBtn').hidden = !r.loopRange;
+  $('startBtn').textContent = '■ 止める';
   setFeedback('', 'カウントのあとに弾き始めてください');
   requestAnimationFrame(tempoTick);
   // タブが裏に回って描画が止まっても、終わりの判定だけは時間どおりに行う
@@ -622,11 +704,23 @@ const tempoTick = () => {
     requestAnimationFrame(tempoTick);
     return;
   }
+  if (r.loopRange) {
+    // 繰り返し：その回の結果を出して、カウントからもう一度
+    r.laps += 1;
+    r.lapHits += T.hits;
+    r.lapTotal += T.expected.length;
+    r.offsets.push(...T.expected.filter((x) => x.hit).map((x) => x.offset));
+    const st = Timing.stats(T.expected.filter((x) => x.hit).map((x) => x.offset));
+    $('lapLine').textContent = `${r.laps}回目：ちょうど ${T.hits} / ${T.expected.length}音${st.n ? `・平均のずれ ${Timing.signed(st.mean)}（${Timing.tendency(st.mean)}）` : ''}`;
+    startTempo();
+    return;
+  }
   const stars = tempoStars(T.hits, T.expected.length);
   const total = T.expected.length;
   finishSongStep(stars, [
     `ちょうど <b>${T.hits}</b> / ${total}音（${T.need}音以上）${stars ? '<span class="pass">○ 達成</span>' : '<span class="miss">× あと少し</span>'}`,
     `Perfect ${T.perfect}音・Good ${T.hits - T.perfect}音、ずれた・弾かなかった ${T.misses}音、ちがう音 ${T.wrong}回`,
+    timingLine(T.expected.filter((x) => x.hit).map((x) => x.offset)),
     stars && stars < 3 ? `<span class="next-star">${stars === 1 ? `★2まで：${Math.ceil(total * 0.95)}音以上ちょうど` : '★3まで：全部の音をちょうど'}</span>` : '',
   ]);
 };
@@ -635,7 +729,7 @@ const tempoNoteOn = (midi) => {
   const r = songRun;
   const T = r.tempo;
   if (!T) return;
-  const now = performance.now();
+  const now = performance.now() - (settings.latency || 0);
   let best = null;
   T.expected.forEach((x) => {
     if (x.hit || x.miss || !matches(midi, x) || Math.abs(now - x.at) > TEMPO_WINDOW) return;
@@ -647,6 +741,8 @@ const tempoNoteOn = (midi) => {
     const perfect = Math.abs(dt) <= TEMPO_PERFECT;
     best.hit = true;
     best.perfect = perfect;
+    best.offset = dt;
+    pmeter.push(dt);
     T.hits++;
     if (perfect) T.perfect++;
     r.combo++;
@@ -654,7 +750,7 @@ const tempoNoteOn = (midi) => {
     const pts = (perfect ? 100 : 60) + Math.min(50, Math.max(0, r.combo - 1) * 5);
     r.score += pts;
     flashKey(midi, 'ok');
-    const lag = dt === 0 ? 'ぴったり' : `${dt < 0 ? '早い' : '遅い'} ${Math.abs(dt)}ms`;
+    const lag = Timing.label(dt);
     popJudge(perfect ? 'Perfect' : 'Good', perfect ? 'perfect' : 'good', `${lag}　${comboText(pts, r.combo)}`);
     setFeedback('ok', `○ ${lag}`);
   } else {
@@ -669,7 +765,7 @@ const tempoNoteOn = (midi) => {
 const songNoteOn = (midi) => {
   const r = songRun;
   if (!r || r.state !== 'play') return;
-  if (r.step.kind === 'tempo') tempoNoteOn(midi);
+  if (r.step.kind === 'tempo' && !r.waitMode) tempoNoteOn(midi);
   else paceNoteOn(midi);
 };
 
@@ -716,7 +812,7 @@ const initSongUI = () => {
     startSongStep(firstOpenStep(currentSong()));
   });
   $('stepSel').addEventListener('change', (e) => startSongStep(Number(e.target.value)));
-  $('startBtn').addEventListener('click', startTempo);
+  $('startBtn').addEventListener('click', () => (songRun?.loopRange && songRun.tempo && songRun.state === 'play' ? stopLoop() : startTempo()));
   $('demoBtn').addEventListener('click', playSongDemo);
   $('retryBtn').addEventListener('click', () => { if (songRun) startSongStep(songRun.stepIdx); });
   $('result').addEventListener('click', (e) => {

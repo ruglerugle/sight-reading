@@ -418,6 +418,9 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
 .check { display: flex; gap: 10px; align-items: center; font-size: .94rem; cursor: pointer; }
 .check input { width: 20px; height: 20px; accent-color: var(--accent); }
 .plan-status { font-size: .92rem; }
+.song-practice { width: 100%; margin: 4px 0 2px; }
+.lap-line { min-height: 1.3em; text-align: center; font-size: .86rem; color: var(--gold); letter-spacing: .04em; }
+#tmeter { margin: 2px auto 6px; }
 .plan-btns { justify-content: flex-start; }
 .plan-legal { font-size: .78rem; color: var(--muted); }
 .acct-error { color: var(--ng); font-size: .9rem; }
@@ -551,12 +554,15 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
         <button id="unlockBtn" class="gold" type="button" data-paywall="song" hidden>🔒 続きを練習する</button>
         <div id="songCredit" class="song-credit"></div>
       </div>
+      <div id="practiceBar" class="song-practice" hidden></div>
       <div id="stageInfo" class="stage-info" aria-live="polite"></div>
       <div id="judgeLayer" aria-hidden="true"></div>
       <div id="result" class="result" aria-live="polite" hidden></div>
       <div id="sheet" class="sheet"><div id="staff" role="img" aria-label="出題された音符"></div></div>
       <div id="nameHint" class="name-hint"></div>
       <div id="feedback" class="feedback" aria-live="polite"></div>
+      <div id="lapLine" class="lap-line" aria-live="polite"></div>
+      <div id="tmeter" aria-hidden="true" hidden></div>
       <div class="kb-box">
         <div class="kb-wrap" aria-label="画面の鍵盤"><div id="kb" class="kb"></div></div>
         <div id="kbNav" class="kb-nav" role="scrollbar" aria-controls="kb" aria-label="鍵盤の全体図（ドラッグで左右に動かす）" hidden>
@@ -651,6 +657,11 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
         </select>
       </label>
       <label class="field">
+        <span>タイミングの補正（ミリ秒）</span>
+        <input id="latencyInput" type="number" min="-200" max="300" step="5">
+        <small>テンポに合わせる練習で、いつも「遅い」と出るときは、MIDIキーボードの音が届くまでの遅れの分だけ大きくします。</small>
+      </label>
+      <label class="field">
         <span>鍵盤の全体図</span>
         <select id="navSel">
           <option value="keys">鍵盤をつかんで動かす</option>
@@ -708,6 +719,9 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
     </ul>
     <h3>クリア条件</h3>
     <p>1ステージは20問。<b>一発正解が16問以上</b>で、<b>1音あたりの平均が3秒以内</b>（和音のステージは1和音あたり4秒以内）ならクリアで、次のステージが開きます。進み具合はト音記号・ヘ音記号・大譜表で別々です。「オクターブ違いも正解」にしているあいだは、クリアを記録しません。</p>
+    <h3>練習モード（曲のテンポの段階）</h3>
+    <p>テンポに合わせて弾く段階では、<b>速さ</b>（50〜100%）、<b>繰り返す</b>（選んだフレーズを止めるまで。1回ごとに結果を出します）、<b>正しく弾くまで待つ</b>（テンポなしで、正しい音を弾くと進みます）を選べます。練習モードの回は、クリアや★の記録には入りません。</p>
+    <p>弾くたびに「早い・遅い」とずれ（ミリ秒）を出し、楽譜の下の帯に並べます（左が早い、右が遅い、白い線が平均）。Good の音符は、早いと青、遅いとオレンジになります。いつも「遅い」と出るときは、設定の「タイミングの補正」で MIDI キーボードの遅れを差し引けます。</p>
     <h3>なぜ効くのか</h3>
     <p>楽譜を読むのが遅いのは、多くの場合「下から2本目の線だから…ソ」と線を数えて音名を出しているからです。音符の位置を見たら、数えずにすぐ鍵盤の位置が出る状態になるまで、短い問題をたくさんくり返すのがいちばんの近道です。まちがえた音や時間がかかった音ほど、多く出題されます。</p>
   </div>
@@ -779,7 +793,8 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
 
 <script src="songs.js?v=4"></script>
 <script src="game.js?v=10"></script>
-<script src="song-mode.js?v=11"></script>
+<script src="timing.js?v=1"></script>
+<script src="song-mode.js?v=12"></script>
 <script src="record-sync.js?v=1"></script>
 <script src="billing.js?v=6"></script>
 <script src="ui.js?v=6"></script>
@@ -837,7 +852,9 @@ const saveStore = (data) => {
 
 const stored = loadStore();
 const settings = Object.assign(
-  { clef: 'treble', ext: 3, naming: 'ja', acc: false, oct: false, hint: false, nav: 'keys' },
+  { clef: 'treble', ext: 3, naming: 'ja', acc: false, oct: false, hint: false, nav: 'keys', latency: 0,
+    // 練習モード（テンポの段階）：速さ・フレーズの繰り返し・正しく弾くまで待つ
+    practice: { speed: 100, loop: false, from: 0, to: 0, wait: false } },
   stored.settings || {}
 );
 let noteStats = stored.noteStats || {}; // id -> { n, miss, time }
@@ -1641,6 +1658,7 @@ const syncSettingsUI = () => {
   $('octChk').checked = settings.oct;
   $('hintChk').checked = settings.hint;
   $('navSel').value = settings.nav;
+  $('latencyInput').value = settings.latency || 0;
   $('goalSel').value = String(daily().goal);
 };
 
@@ -1661,6 +1679,7 @@ $('accChk').addEventListener('change', (e) => { settings.acc = e.target.checked;
 $('octChk').addEventListener('change', (e) => { settings.oct = e.target.checked; onSettingsChanged(); });
 $('goalSel').addEventListener('change', (e) => { daily().goal = Number(e.target.value); persist(); renderDaily(); });
 $('navSel').addEventListener('change', (e) => { settings.nav = e.target.value; persist(); syncKbScroll(); });
+$('latencyInput').addEventListener('change', (e) => { settings.latency = Math.max(-200, Math.min(300, Math.round(Number(e.target.value) || 0))); e.target.value = settings.latency; persist(); });
 $('hintChk').addEventListener('change', (e) => {
   settings.hint = e.target.checked;
   persist();
