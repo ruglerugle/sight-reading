@@ -175,7 +175,26 @@ const stopSongAudio = () => {
   songNodes.forEach((g) => g.disconnect());
   songNodes = [];
   clearTimeout(songDemoTimer);
+  Demo.stop(); // お手本も止める（ステップを変える・テンポの練習を始める・曲をやめるとき）
 };
+
+// ---- 元の曲（パート別の音量）：曲に stems（Suno の音源をパートに分けたもの）があるときだけ、mixer.js のプレーヤーを出す ----
+let songMixer = null; // { id, mx }
+const closeSongMixer = () => {
+  if (songMixer) songMixer.mx.destroy();
+  songMixer = null;
+  $('songMixerBox').hidden = true;
+};
+const syncSongMixer = (song) => {
+  if (songMixer && songMixer.id === song.id) return;
+  closeSongMixer();
+  if (!song.stems) return;
+  $('songMixerBox').hidden = false;
+  // ピアノのパートは元の曲にないので、「自分のパートを消す」は出さない（mine なし）
+  songMixer = { id: song.id, mx: Mixer.create($('songMixer'), { id: song.id, ...song.stems }) };
+};
+// 元の曲を止める（テンポの練習はクリックで弾くので、重ねない）
+const pauseSongMixer = () => { if (songMixer) songMixer.mx.pause(); };
 
 const songClick = (at, accent) => {
   const { ctx, out } = getAudio();
@@ -493,6 +512,7 @@ const stopLoop = () => {
 const startSongStep = (idx) => {
   stopSongAudio();
   const song = currentSong();
+  syncSongMixer(song);
   const steps = songSteps(song);
   const stepIdx = Math.min(Math.max(0, idx), steps.length - 1);
   const step = steps[stepIdx];
@@ -660,6 +680,7 @@ const startTempo = () => {
   const r = songRun;
   if (!r || r.step.kind !== 'tempo') return;
   stopSongAudio();
+  pauseSongMixer();
   const { c, song } = r;
   const { ctx } = getAudio();
   if (ctx.state === 'suspended') ctx.resume();
@@ -795,16 +816,21 @@ const playSongDemo = () => {
   if (!r) return;
   if (r.tempo && r.state === 'play') return; // テンポの練習中は鳴らさない
   stopSongAudio();
-  const { ctx } = getAudio();
-  if (ctx.state === 'suspended') ctx.resume();
+  pauseSongMixer();
+  const { ctx, out } = getAudio();
   const pct = r.step.kind === 'tempo' ? r.step.pct : 80;
   const spb = 60 / ((r.song.tempo * pct) / 100);
   const t0 = r.events[0].t;
-  const base = ctx.currentTime + 0.2;
-  r.events.forEach((e) => e.keys.forEach((k) => {
-    const g = beep(k.midi, base + (playBeat(r.song, e.t) - t0) * spb);
-    if (g) songNodes.push(g);
-  }));
+  const at = (e) => (playBeat(r.song, e.t) - t0) * spb; // お手本の頭からの秒
+  // 一時停止・停止できるように、demo.js でお手本だけの GainNode を通して鳴らす
+  Demo.play($('demoBtn'), {
+    ctx, out,
+    len: at(r.events[r.events.length - 1]) + 1.5,
+    schedule: (bus, start, from) => r.events.forEach((e) => {
+      if (at(e) < from - 0.005) return;
+      e.keys.forEach((k) => beep(k.midi, start + at(e) - from, bus));
+    }),
+  });
 };
 
 // ---- 曲モードに入る・出る ----
@@ -820,6 +846,7 @@ const enterSong = () => {
 
 const exitSong = () => {
   stopSongAudio();
+  closeSongMixer();
   songRun = null;
   $('songPanel').hidden = true;
   $('startBtn').hidden = true;
@@ -834,6 +861,10 @@ const initSongUI = () => {
   $('stepSel').addEventListener('change', (e) => startSongStep(Number(e.target.value)));
   $('startBtn').addEventListener('click', () => (songRun?.loopRange && songRun.tempo && songRun.state === 'play' ? stopLoop() : startTempo()));
   $('demoBtn').addEventListener('click', playSongDemo);
+  // 元の曲を再生したら、お手本は止める（2つの音を重ねない）
+  $('songMixer').addEventListener('click', (e) => {
+    if (e.target instanceof Element && e.target.closest('[data-mx="play"]')) Demo.stop();
+  });
   $('retryBtn').addEventListener('click', () => { if (songRun) startSongStep(songRun.stepIdx); });
   $('result').addEventListener('click', (e) => {
     const b = e.target instanceof Element ? e.target.closest('button[data-step]') : null;

@@ -295,6 +295,8 @@ body[data-view="play"] .tabs, body[data-view="play"] .topbar, body[data-view="pl
 .song-panel button.ghost { background: rgba(255, 255, 255, .08); color: var(--play-ink); box-shadow: 0 0 0 1px rgba(255, 255, 255, .16) inset; }
 .song-panel button.ghost:hover:not(:disabled) { background: rgba(255, 255, 255, .16); }
 .song-credit { flex-basis: 100%; font-size: .8rem; color: var(--play-muted); text-align: center; }
+.song-mixer { width: 100%; margin-top: 18px; text-align: left; --panel2: var(--play-panel); --line: rgba(255, 255, 255, .14); --muted: var(--play-muted); }
+.song-mixer h3 { margin: 0 0 8px; font-size: .95rem; color: var(--play-muted); }
 .stage-info { font-size: .86rem; color: var(--play-muted); text-align: center; }
 .stage-info b { color: var(--play-ink); }
 .sheet { width: 100%; background: #fffefb; border-radius: 22px; padding: 14px 12px; box-shadow: 0 18px 40px rgba(0, 0, 0, .35); display: grid; justify-items: center; }
@@ -577,6 +579,7 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
       <div class="controls">
         <button id="skipBtn" class="ghost" type="button">答えを見て次へ</button>
       </div>
+      <div id="songMixerBox" class="song-mixer" hidden><h3>元の曲（パート別の音量）</h3><div id="songMixer"></div></div>
       <div class="kb-note"><span id="midiHelp"></span> <span class="pc-only">PCのキー A W S E D F T G Y H U J K（ド〜ド）、Z / X でオクターブ移動。いま弾ける音は <b id="pcOctLabel">C4〜C5</b>。</span></div>
     </section>
   </div>
@@ -795,15 +798,17 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
   </div>
 </dialog>
 
-<script src="songs.js?v=7"></script>
+<script src="songs.js?v=8"></script>
 <script src="game.js?v=10"></script>
 <script src="timing.js?v=2"></script>
 <script src="assess.js?v=1"></script>
-<script src="song-mode.js?v=14"></script>
+<script src="song-mode.js?v=15"></script>
 <script src="record-sync.js?v=1"></script>
 <script src="billing.js?v=6"></script>
-<script src="ui.js?v=6"></script>
+<script src="ui.js?v=7"></script>
 <script src="studio.js?v=1"></script>
+<script src="mixer.js?v=1"></script>
+<script src="demo.js?v=1"></script>
 <script>
 'use strict';
 const VF = Vex.Flow;
@@ -1256,7 +1261,8 @@ const unlockAudio = () => {
 );
 
 // at: 鳴らす時刻（AudioContext の時計）。省略したら今すぐ。止めるときのために gain を返す
-const beep = (midi, at = 0) => {
+// dest: つなぐ先（お手本は止められるように、お手本だけの GainNode を通す）
+const beep = (midi, at = 0, dest = null) => {
   try {
     const { ctx, out, wave } = getAudio();
     if (ctx.state === 'suspended') ctx.resume();
@@ -1275,7 +1281,7 @@ const beep = (midi, at = 0) => {
     gain.gain.exponentialRampToValueAtTime(0.6, t + 0.005);
     gain.gain.exponentialRampToValueAtTime(0.2, t + 0.15);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + len);
-    osc.connect(filter).connect(gain).connect(out);
+    osc.connect(filter).connect(gain).connect(dest || out);
     osc.start(t);
     osc.stop(t + len + 0.05);
     return gain;

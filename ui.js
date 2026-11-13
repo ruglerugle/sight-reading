@@ -20,6 +20,11 @@ const showView = (v) => {
   if (prev === 'play' && v !== 'play' && songRun && songRun.tempo && songRun.state === 'play') {
     startSongStep(songRun.stepIdx);
   }
+  // 練習の画面を離れたら、お手本と元の曲を止める
+  if (prev === 'play' && v !== 'play') {
+    Demo.stop();
+    if (songMixer) songMixer.mx.stop();
+  }
   document.body.dataset.view = v;
   document.querySelectorAll('.tabs button[data-tab]').forEach((b) => {
     if (b.dataset.tab === v) b.setAttribute('aria-current', 'page');
