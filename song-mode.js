@@ -10,7 +10,9 @@ const KEY_ACC = { C: {}, Am: {}, G: { 3: 1 }, D: { 3: 1, 0: 1 }, F: { 6: -1 } };
 const TEMPO_WINDOW = 150; // テンポの判定：このミリ秒以内のずれならちょうど
 const SONG_W = 360;       // 曲の譜面の幅（viewBox）
 
-const SONG_GENRES = [['sight', '初見チャレンジ（毎日かわる・自動作曲）'], ['classic', 'クラシック・民謡'], ['jazz', 'ジャズ（オリジナル練習曲）'], ['band', 'バンドの曲（オリジナル・ジャンル別）']];
+// [欄の名前, 見出し, 説明]。オリジナル曲（original: true。元の曲の音源つき）はジャンルに関係なく別の欄にまとめる
+const SONG_GENRES = [['sight', '初見チャレンジ（毎日かわる・自動作曲）'], ['classic', 'クラシック・民謡'], ['jazz', 'ジャズ（オリジナル練習曲）'], ['original', 'オリジナル曲', '元の曲の音源に合わせて練習']];
+const songGroupOf = (s) => (s.original ? 'original' : s.genre || 'classic');
 const HAND_SETS = { rh: ['rh'], lhs: ['lhs'], bothS: ['rh', 'lhs'], lh: ['lh'], both: ['rh', 'lh'] };
 const HAND_LABEL = { rh: '右手', lhs: '左手（簡易）', bothS: '両手（簡易）', lh: '左手', both: '両手' };
 
@@ -430,7 +432,7 @@ const syncSongSelects = () => {
     return `<option value="${s.id}">${s.title}（${s.composer}）${s.locked ? '　お試し' : ''}${got ? `　★${got}/${n * 3}` : ''}</option>`;
   };
   $('songSel').innerHTML = SONG_GENRES.map(([genre, label]) =>
-    `<optgroup label="${label}">${SONGS.filter((s) => (s.genre || 'classic') === genre).map(option).join('')}</optgroup>`
+    `<optgroup label="${label}">${SONGS.filter((s) => songGroupOf(s) === genre).map(option).join('')}</optgroup>`
   ).join('');
   $('songSel').value = song.id;
   $('stepSel').innerHTML = songSteps(song).map((s, i) => {

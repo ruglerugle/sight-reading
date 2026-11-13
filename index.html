@@ -113,6 +113,7 @@ body[data-view="songs"] #songsView, body[data-view="records"] #recordsView { dis
 .section-title { display: flex; align-items: baseline; gap: 10px; margin: 28px 0 12px; }
 .section-title h2 { font-size: 1.2rem; margin: 0; }
 .section-title span { color: var(--muted); font-size: .88rem; }
+.genre-note { margin: -6px 0 12px; color: var(--muted); font-size: .88rem; }
 footer { text-align: center; font-size: .8rem; color: var(--muted); padding: 0 16px 100px; }
 footer a { color: var(--muted); }
 /* スマホ：タブは画面の下。PC：タブは左 */
@@ -526,6 +527,7 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
     <div class="extras">
       <button type="button" class="tile" data-goto-view="songs" data-genre="sight"><span class="ic" style="background:#fff1d6">📅</span><span><b>今日の初見チャレンジ</b><small>毎日0時に新しい曲。はじめて見る楽譜を止まらずに。</small></span></button>
       <button type="button" class="tile" data-goto-view="songs"><span class="ic" style="background:#eeebfe">🎼</span><span><b>曲で練習する</b><small>クラシック・民謡・ジャズ。右手→左手→両手→テンポ。</small></span></button>
+      <button type="button" class="tile" data-goto-view="songs" data-genre="original"><span class="ic" style="background:#fde2e4">🎶</span><span><b>オリジナル曲</b><small>元の曲の音源に合わせて練習。</small></span></button>
       <button type="button" class="tile" data-assess><span class="ic" style="background:#fff1d6">🎯</span><span><b>実力テスト</b><small id="assessLast">20問・約3分。いまの読譜の力をレベル1〜10で測り、合うステージまで開けます（無料）</small></span></button>
       <button type="button" class="tile" data-start="free"><span class="ic" style="background:#dcfce7">∞</span><span><b>自由練習</b><small>単音が終わりなく出ます。ウォーミングアップに。</small></span></button>
     </div>
@@ -798,14 +800,14 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
   </div>
 </dialog>
 
-<script src="songs.js?v=8"></script>
+<script src="songs.js?v=9"></script>
 <script src="game.js?v=10"></script>
 <script src="timing.js?v=2"></script>
 <script src="assess.js?v=1"></script>
-<script src="song-mode.js?v=15"></script>
+<script src="song-mode.js?v=16"></script>
 <script src="record-sync.js?v=1"></script>
 <script src="billing.js?v=6"></script>
-<script src="ui.js?v=7"></script>
+<script src="ui.js?v=8"></script>
 <script src="studio.js?v=1"></script>
 <script src="mixer.js?v=1"></script>
 <script src="demo.js?v=1"></script>

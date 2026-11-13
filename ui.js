@@ -214,8 +214,8 @@ const coverOf = (song, i) =>
 const renderSongLib = () => {
   ensureSightSongs();
   const paid = account.paid;
-  $('songLib').innerHTML = SONG_GENRES.map(([genre, label]) => {
-    const list = SONGS.filter((s) => (s.genre || 'classic') === genre);
+  $('songLib').innerHTML = SONG_GENRES.map(([genre, label, note]) => {
+    const list = SONGS.filter((s) => songGroupOf(s) === genre);
     if (!list.length) return '';
     const cards = list.map((s, i) => {
       const [c1, c2, glyph] = coverOf(s, i);
@@ -231,7 +231,7 @@ const renderSongLib = () => {
         `<span class="got">★ ${ss.got}/${ss.max}</span></span>` +
         `<span class="bar"><i style="width:${ss.steps ? (ss.done / ss.steps) * 100 : 0}%"></i></span></span></button>`;
     }).join('');
-    return `<div class="section-title" id="genre-${genre}"><h2>${label}</h2><span>${list.length}曲</span></div><div class="song-grid">${cards}</div>`;
+    return `<div class="section-title" id="genre-${genre}"><h2>${label}</h2><span>${list.length}曲</span></div>${note ? `<p class="genre-note">${note}</p>` : ''}<div class="song-grid">${cards}</div>`;
   }).join('');
 };
 

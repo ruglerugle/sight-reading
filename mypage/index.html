@@ -172,10 +172,10 @@ h1 { font-weight: 300; letter-spacing: .08em; }
 </footer>
 <div id="tip" class="tip" hidden></div>
 
-<script src="../songs.js?v=5"></script>
+<script src="../songs.js?v=9"></script>
 <script src="../game.js?v=10"></script>
 <script src="../timing.js?v=2"></script>
-<script src="../song-mode.js?v=13"></script>
+<script src="../song-mode.js?v=16"></script>
 <script src="../record-sync.js?v=1"></script>
 <script>
 'use strict';
@@ -334,7 +334,7 @@ const renderStages = () => {
 
 const renderSongs = () => {
   const html = SONG_GENRES.map(([genre, label]) => {
-    const list = SONGS.filter((s) => (s.genre || 'classic') === genre).map((s) => {
+    const list = SONGS.filter((s) => songGroupOf(s) === genre).map((s) => {
       const steps = songSteps(s);
       let got = 0;
       const items = steps.map((st, i) => {
