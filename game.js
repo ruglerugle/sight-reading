@@ -222,7 +222,9 @@ const toast = (text) => {
     el.className = 'toast';
     el.setAttribute('role', 'status');
     el.textContent = text;
+    if (typeof el.showPopover === 'function') el.popover = 'manual';
     document.body.appendChild(el);
+    if (el.popover) el.showPopover();
     setTimeout(() => { el.remove(); done(); }, 3200);
   }));
 };
