@@ -655,7 +655,7 @@ const SONGS = [
       "g3/h.~",
       "g3/h.",
       "r/q f6/h",
-      "g6/q g#6/8 r/q."
+      "r/8. g4/8. g4/q."
     ],
     "lh": [
       "g2/h.~",
@@ -720,11 +720,11 @@ const SONGS = [
         {
           "name": "Aメロ",
           "from": 16,
-          "to": 36
+          "to": 32
         },
         {
           "name": "サビ",
-          "from": 36,
+          "from": 32,
           "to": 54
         }
       ]
