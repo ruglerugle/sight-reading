@@ -1,0 +1,817 @@
+{
+  "sourceRevision": "3382bf9496bba2486f5ab0de55a264d1dfc38404",
+  "sampleRate": 44100,
+  "license": "CC-BY-3.0",
+  "files": [
+    {
+      "midi": 21,
+      "layer": 5,
+      "sourceFile": "A0v5.flac",
+      "sourceSha256": "4b51dcd8e2573994744404235e64db98934a6f2543096bb469790321cfb8bbd9",
+      "file": "21-v5.mp3",
+      "bytes": 60648,
+      "sha256": "3e1308e5463f864bed7de4b02ee494861f4f4264cddf02e93f08df8aba615efd"
+    },
+    {
+      "midi": 21,
+      "layer": 8,
+      "sourceFile": "A0v8.flac",
+      "sourceSha256": "f2745945c5a13a313f6d752f5391e203a4dfbddf4d973ddb009d69043452a1b4",
+      "file": "21-v8.mp3",
+      "bytes": 60648,
+      "sha256": "dcb85dea6a3a6b5416bb452ee03d49ab90f9e0b971adedcec39be7e7a6a8b25c"
+    },
+    {
+      "midi": 21,
+      "layer": 10,
+      "sourceFile": "A0v10.flac",
+      "sourceSha256": "7c3435ed202c64eec040070286b1cfc298e2f701ad4d54c0556e00c1c4ee53b0",
+      "file": "21-v10.mp3",
+      "bytes": 60648,
+      "sha256": "0700e5ecb24535f538250228e321e5fa37e6c0b1172fce669d70d66985216539"
+    },
+    {
+      "midi": 24,
+      "layer": 5,
+      "sourceFile": "C1v5.flac",
+      "sourceSha256": "437ef6f1e8c35f062610b063cbcdf394180d344ce510d936a915f57a6fe4e19f",
+      "file": "24-v5.mp3",
+      "bytes": 60648,
+      "sha256": "0d606691124b17bcc4a95c9a1a977a25250f2ef394d0271806c5dffffc30580e"
+    },
+    {
+      "midi": 24,
+      "layer": 8,
+      "sourceFile": "C1v8.flac",
+      "sourceSha256": "67212ec084c1de5e51d2a9b0bc6204fab808ea0e034f71cfbed94a8a8de2fb5a",
+      "file": "24-v8.mp3",
+      "bytes": 60648,
+      "sha256": "6ee73f08f6a1b68c3981d5d72290f60927f9893f12df5eca78f68bb3ef41703c"
+    },
+    {
+      "midi": 24,
+      "layer": 10,
+      "sourceFile": "C1v10.flac",
+      "sourceSha256": "e9bdda4a74f28a47f135cd5f0f7aaae7d78390b82a4642e5201423ae2dabbc21",
+      "file": "24-v10.mp3",
+      "bytes": 60648,
+      "sha256": "20f062be2a6f30e68b263a0a0215df85d2908437df8395fd5f4787f92e77c9e7"
+    },
+    {
+      "midi": 27,
+      "layer": 5,
+      "sourceFile": "D#1v5.flac",
+      "sourceSha256": "d11f4f7010acdf403f48bd02aee092293c3daba7a2833bae460a75c9b76ea7e0",
+      "file": "27-v5.mp3",
+      "bytes": 60648,
+      "sha256": "c8d1b976a2114cee73c467bea9d5c5566d13b8b1fbf7368b6277ea6f62beaee8"
+    },
+    {
+      "midi": 27,
+      "layer": 8,
+      "sourceFile": "D#1v8.flac",
+      "sourceSha256": "26bd314332181a0093c5a8a07b58f457c4215e19475f26b398e8e0300e60be7b",
+      "file": "27-v8.mp3",
+      "bytes": 60648,
+      "sha256": "75ad6effe7969fb040245164de4e8bd5953266d6d92bb21113caeeef9f1448e4"
+    },
+    {
+      "midi": 27,
+      "layer": 10,
+      "sourceFile": "D#1v10.flac",
+      "sourceSha256": "30fe7f9277dcd7da565400dbc4e1fc60556d282d41b58f16f9b6fa400d58112e",
+      "file": "27-v10.mp3",
+      "bytes": 60648,
+      "sha256": "be2b7e5bce9c5e8efff8bce2a27d700f0488fcd4551a7314368d7e29136bf53c"
+    },
+    {
+      "midi": 30,
+      "layer": 5,
+      "sourceFile": "F#1v5.flac",
+      "sourceSha256": "1a2b1ed554467a4efc9894784f5296deb34d422d8b2a2a36ad2eaeb779f0152b",
+      "file": "30-v5.mp3",
+      "bytes": 60648,
+      "sha256": "ea5c55e8272bf81ddc3a4ac87e94f1183fcb5ef0135f7db36b6a5e891ddb8a5e"
+    },
+    {
+      "midi": 30,
+      "layer": 8,
+      "sourceFile": "F#1v8.flac",
+      "sourceSha256": "72c390d53bbec6eba14beecc422e2b081ab27b7a377604cd6f4cee5fdb3cf7ae",
+      "file": "30-v8.mp3",
+      "bytes": 60648,
+      "sha256": "4da825d64d5335bcaaf14ed52ebb288384fdff2d2290aead2092f81281b2840a"
+    },
+    {
+      "midi": 30,
+      "layer": 10,
+      "sourceFile": "F#1v10.flac",
+      "sourceSha256": "0a841936d69a25eb65104163f0b8a9056d8892db32c5a2aca39acb18ae6899d0",
+      "file": "30-v10.mp3",
+      "bytes": 60648,
+      "sha256": "33efdee797bba2fa5d01b19ceca7b96ff8eec6cd5e2d0b7da4966981b2c01e6c"
+    },
+    {
+      "midi": 33,
+      "layer": 5,
+      "sourceFile": "A1v5.flac",
+      "sourceSha256": "a1986ba0c45258f80b6014e4341def170f283b28a4905e10518c763254a9478f",
+      "file": "33-v5.mp3",
+      "bytes": 60648,
+      "sha256": "13acd6d4e47ba465648a44b0280477eea31fa5bdbd908e394ecdfb4ccc0904cc"
+    },
+    {
+      "midi": 33,
+      "layer": 8,
+      "sourceFile": "A1v8.flac",
+      "sourceSha256": "357b13d2e918e6146c3ead9d016a867bb49133b370e58dcb0bc1f41a56023abf",
+      "file": "33-v8.mp3",
+      "bytes": 60648,
+      "sha256": "72fe3925135c7956199a9248716f4087bb0399e566ae3f337e98efae9dff7b79"
+    },
+    {
+      "midi": 33,
+      "layer": 10,
+      "sourceFile": "A1v10.flac",
+      "sourceSha256": "e545108a593d3c8a54b83383e27b12033f6c036e9f9c15de92a1df3cf2a73eb2",
+      "file": "33-v10.mp3",
+      "bytes": 60648,
+      "sha256": "68e5a85928394269703c647c549d55650fc5b70e7d36619fcc92805988f58f39"
+    },
+    {
+      "midi": 36,
+      "layer": 5,
+      "sourceFile": "C2v5.flac",
+      "sourceSha256": "bb79dafec30facfec6dcbc24cab2b933af647fbf65d9a9216aaf7842e43daa6a",
+      "file": "36-v5.mp3",
+      "bytes": 60648,
+      "sha256": "edd294dff201f82947037207ed8d52a2824c57764692e9b726d0984bb9c39ed0"
+    },
+    {
+      "midi": 36,
+      "layer": 8,
+      "sourceFile": "C2v8.flac",
+      "sourceSha256": "2fae21e19a214aeecd527a2235b106f66030df6ff51cfa789a5b4c6feb3d7357",
+      "file": "36-v8.mp3",
+      "bytes": 60648,
+      "sha256": "3139bd23eaa19ed6f5efd7543171337dd20f82e5c7a26719945330355eb24b71"
+    },
+    {
+      "midi": 36,
+      "layer": 10,
+      "sourceFile": "C2v10.flac",
+      "sourceSha256": "0e55ec6b4046552b7f00b19fb38fbe8aaf02d50f7f4badf9e7eb008ad0843e18",
+      "file": "36-v10.mp3",
+      "bytes": 60648,
+      "sha256": "670e137cbe6dbcc87b5ef36fa00d6d4058847907612a0891fca08a4b7abbc372"
+    },
+    {
+      "midi": 39,
+      "layer": 5,
+      "sourceFile": "D#2v5.flac",
+      "sourceSha256": "4ce2134deda2ee09aecfa04705310cd05113b0cfbae131e2c23727cdbb34ec1d",
+      "file": "39-v5.mp3",
+      "bytes": 60648,
+      "sha256": "fb2f21908b8293f5baf7b2e6fbbf9c553ab553e15bfe7472ec605cf23c485ee5"
+    },
+    {
+      "midi": 39,
+      "layer": 8,
+      "sourceFile": "D#2v8.flac",
+      "sourceSha256": "662b21ad6ee7634777fe8b5952c70db1795a23bfc8557ecb35844ce8d12eba70",
+      "file": "39-v8.mp3",
+      "bytes": 60648,
+      "sha256": "0533113d306b9cc11a1d97b0b9aeb922ede7e28d6599d75a6f0f212e9e2d88fb"
+    },
+    {
+      "midi": 39,
+      "layer": 10,
+      "sourceFile": "D#2v10.flac",
+      "sourceSha256": "7847ef2ab4bab2ae111e34390b843dc9f5875e1fb26a0d0df30ff916aa550152",
+      "file": "39-v10.mp3",
+      "bytes": 60648,
+      "sha256": "4c69134137de277a8e06c3b8de870ebbc4261bd3cc572092d1af8bef037eabd6"
+    },
+    {
+      "midi": 42,
+      "layer": 5,
+      "sourceFile": "F#2v5.flac",
+      "sourceSha256": "9a1dcad208ada9743e0b31398bce0269d238e6658fa2bbcceb81f0564a86d3bc",
+      "file": "42-v5.mp3",
+      "bytes": 60648,
+      "sha256": "b809c35025a29fc8ec2ef1323dbbeadf20a376a11f1cd92298f5cf1d5347f2dc"
+    },
+    {
+      "midi": 42,
+      "layer": 8,
+      "sourceFile": "F#2v8.flac",
+      "sourceSha256": "05c649a7114f0845ee09716831242af9726b2429dad92eb170fc84e92f92a8e1",
+      "file": "42-v8.mp3",
+      "bytes": 60648,
+      "sha256": "abbe0a3c2c8dba69b1a804e922289a58c9316f8709ff5af02cbeebcc77f95b50"
+    },
+    {
+      "midi": 42,
+      "layer": 10,
+      "sourceFile": "F#2v10.flac",
+      "sourceSha256": "db7c995bf388612d88de97c98183e71860a8c13fb46b02b8b3770fa1f0349ca9",
+      "file": "42-v10.mp3",
+      "bytes": 60648,
+      "sha256": "863e40ec97d0b871db79a37489a1a417851dce8c5312ab2dea928290ced1a551"
+    },
+    {
+      "midi": 45,
+      "layer": 5,
+      "sourceFile": "A2v5.flac",
+      "sourceSha256": "b38348a7084e2842f6b5441f525877713031a85228c743bc5b55e6a28cadfc63",
+      "file": "45-v5.mp3",
+      "bytes": 60648,
+      "sha256": "5470c436d8fd78c585a650b2c2d6aa7036c76fc98ad80940e66d01e7d00d9500"
+    },
+    {
+      "midi": 45,
+      "layer": 8,
+      "sourceFile": "A2v8.flac",
+      "sourceSha256": "31dcdb3c1dea91943c4cccbb9f804dde2953ae1f16cb3990fe7def7acf60f944",
+      "file": "45-v8.mp3",
+      "bytes": 60648,
+      "sha256": "519a260bb1961e9a836e455df368282314f6d6c014324f5b5cddc693f78a584b"
+    },
+    {
+      "midi": 45,
+      "layer": 10,
+      "sourceFile": "A2v10.flac",
+      "sourceSha256": "206bccac2ad09b26a46198876692a892dad8d56021dcf2f6e348aa038db7028c",
+      "file": "45-v10.mp3",
+      "bytes": 60648,
+      "sha256": "febba33cf392bfa02c81a4b56763317730751ccc05c0a4d763872f6eb6ac0587"
+    },
+    {
+      "midi": 48,
+      "layer": 5,
+      "sourceFile": "C3v5.flac",
+      "sourceSha256": "739ff6e06c830e0a252708bcca21d143babeb0cf1480ce4ebc58fa8ea67719ef",
+      "file": "48-v5.mp3",
+      "bytes": 50722,
+      "sha256": "0d942b381f504f737524aa9e5639ae4238cc86d247f1ab5d0e5ee70c9205d72a"
+    },
+    {
+      "midi": 48,
+      "layer": 8,
+      "sourceFile": "C3v8.flac",
+      "sourceSha256": "b9200830cdef54fe0eb92db928dea161cd26d1faf31c7a08a4f51c97549e05bf",
+      "file": "48-v8.mp3",
+      "bytes": 50722,
+      "sha256": "3375830330b175f1b933eae1639815992cf10129ba40fe8ada7d58d9b6c4f51f"
+    },
+    {
+      "midi": 48,
+      "layer": 10,
+      "sourceFile": "C3v10.flac",
+      "sourceSha256": "eb3ddb8e7df54f63d1f91c7fcc04c921623941d325df3ebeed291e1a6d82318c",
+      "file": "48-v10.mp3",
+      "bytes": 50722,
+      "sha256": "d42859f78642e634e00c9c9da4fc94ce2126fdc4b528ce848f165a093869683e"
+    },
+    {
+      "midi": 51,
+      "layer": 5,
+      "sourceFile": "D#3v5.flac",
+      "sourceSha256": "2fef32f190a83ebd8d5dac184beeffbdc7f21a3b1b562e557db266e725dd60d1",
+      "file": "51-v5.mp3",
+      "bytes": 50722,
+      "sha256": "ba6dfc4739d2309b94cfa78d38ee5743cfba647a6528a08f8f6730279356e688"
+    },
+    {
+      "midi": 51,
+      "layer": 8,
+      "sourceFile": "D#3v8.flac",
+      "sourceSha256": "900ad0d774e6cefd44c1081b66d50556b3121bf1d3f255c5329a9117447b9cff",
+      "file": "51-v8.mp3",
+      "bytes": 50722,
+      "sha256": "7bf5ec3a05fd2658112f8fa7f463d9163eca278000ca7eebc31838dc8aff13d2"
+    },
+    {
+      "midi": 51,
+      "layer": 10,
+      "sourceFile": "D#3v10.flac",
+      "sourceSha256": "6d932b081ecf89a9dd4bf84a74aab0945992c70b1ecff1880806b28829fbfd74",
+      "file": "51-v10.mp3",
+      "bytes": 50722,
+      "sha256": "b9ac09d4abcfed3fbcc638ed3c1df0fa0671bc2a7ba3878c03309c7e1ebde257"
+    },
+    {
+      "midi": 54,
+      "layer": 5,
+      "sourceFile": "F#3v5.flac",
+      "sourceSha256": "aa64b3c1bcbaff4bc6e0246038ffc7fa8bb047dc9d5bdf6f66746f7d03a487eb",
+      "file": "54-v5.mp3",
+      "bytes": 50722,
+      "sha256": "1e5acdf9584767dcbc46de36ae05618742ed7e11b11c512cfdc63fcf34a5fd57"
+    },
+    {
+      "midi": 54,
+      "layer": 8,
+      "sourceFile": "F#3v8.flac",
+      "sourceSha256": "116a760f8552491d361cae27ac06f4e46d226f9a50e5ea58f6c385fac7efca68",
+      "file": "54-v8.mp3",
+      "bytes": 50722,
+      "sha256": "c490e6094775c594e5710d6cbad76e0e934e75544c8b300e3518b98303d7314a"
+    },
+    {
+      "midi": 54,
+      "layer": 10,
+      "sourceFile": "F#3v10.flac",
+      "sourceSha256": "fb05b33c7e8bf85f2cac42f8c75ab1530754dc771f00f15f57a9d86c05cbd13f",
+      "file": "54-v10.mp3",
+      "bytes": 50722,
+      "sha256": "1300bbb49d4b6dafd25c20315de03e0da10374db50b2261edde38414a52bff1d"
+    },
+    {
+      "midi": 57,
+      "layer": 5,
+      "sourceFile": "A3v5.flac",
+      "sourceSha256": "5956e4b731456ad34443a7c8db99c0bbd742df7fe625b0e123f5dd008817f24c",
+      "file": "57-v5.mp3",
+      "bytes": 50722,
+      "sha256": "a921e2d8bf301baab7ce03483d09ba3f4823b3c227d3f44d5a3751541f2dc921"
+    },
+    {
+      "midi": 57,
+      "layer": 8,
+      "sourceFile": "A3v8.flac",
+      "sourceSha256": "b02ed7c37d6b902552274c92d66911751ee52aac20b28618387e1388b1653ed4",
+      "file": "57-v8.mp3",
+      "bytes": 50722,
+      "sha256": "11108bc9ecd164834246747d869773118c0bdd9f28d29578d4bea189fed78328"
+    },
+    {
+      "midi": 57,
+      "layer": 10,
+      "sourceFile": "A3v10.flac",
+      "sourceSha256": "78669b41c7fabb11aa073cc8f834197cb36689653d6671f441bb82b41fdb51ff",
+      "file": "57-v10.mp3",
+      "bytes": 50722,
+      "sha256": "0629a2b717b47ed055d1fdf35a45ee643caba91a761faf9d85ebf09d8208772c"
+    },
+    {
+      "midi": 60,
+      "layer": 5,
+      "sourceFile": "C4v5.flac",
+      "sourceSha256": "2c0c641a32b4d0958c9b1e3a4049dad2c1aea01aa74844d5061ab59033ddc171",
+      "file": "60-v5.mp3",
+      "bytes": 50722,
+      "sha256": "a576786b812bcf7f388aec71f5d30f542bde5d98bd20336e3d0488c36b5241c9"
+    },
+    {
+      "midi": 60,
+      "layer": 8,
+      "sourceFile": "C4v8.flac",
+      "sourceSha256": "36fb0535a1f21fe1dfc367c361dedda73710144e8c4940b40e97e6e5f8a3c694",
+      "file": "60-v8.mp3",
+      "bytes": 50722,
+      "sha256": "d2d2d87315bb55ad85beb4d0e99c169294a20cd9254617feba051f5315ac431f"
+    },
+    {
+      "midi": 60,
+      "layer": 10,
+      "sourceFile": "C4v10.flac",
+      "sourceSha256": "0e9d6e945df79113cd8bd9e841aed5d4537989704e993bfbed7fa8839724244a",
+      "file": "60-v10.mp3",
+      "bytes": 50722,
+      "sha256": "b1c54f0d593b5ce72bfe2f50122a79cbda5b13c8f6ddadf04ca3f1952b569866"
+    },
+    {
+      "midi": 63,
+      "layer": 5,
+      "sourceFile": "D#4v5.flac",
+      "sourceSha256": "fa9f6c69388ae6a3ddd690c0d9a4c81ef0f463911d87c5e8c3e401ea026e044a",
+      "file": "63-v5.mp3",
+      "bytes": 50722,
+      "sha256": "b4be05a86c525ee04172709c40f7d89a14b0204c95045c39c5180c48085ce12e"
+    },
+    {
+      "midi": 63,
+      "layer": 8,
+      "sourceFile": "D#4v8.flac",
+      "sourceSha256": "295179461449c598c44ad712977d47b41c0c25d9c782d349094e748dc06c0dfa",
+      "file": "63-v8.mp3",
+      "bytes": 50722,
+      "sha256": "98201d9cad17107e0ec066ce0cdcc6e13dad7b1f4c582e556fffdcbfcadac31b"
+    },
+    {
+      "midi": 63,
+      "layer": 10,
+      "sourceFile": "D#4v10.flac",
+      "sourceSha256": "a00e4a1e6e2658e686e2eab60dff701fd539e75072ab3811cb3038d01192dc72",
+      "file": "63-v10.mp3",
+      "bytes": 50722,
+      "sha256": "b49c3035e287625250d8bd71482a41587979e5d136308dd8276eb6dfb1d89081"
+    },
+    {
+      "midi": 66,
+      "layer": 5,
+      "sourceFile": "F#4v5.flac",
+      "sourceSha256": "bcb9fed0973442b2ec681d06a3690676608e2b225e0a17a95cb8782ff0b0f0ff",
+      "file": "66-v5.mp3",
+      "bytes": 50722,
+      "sha256": "f4ab9f8269d91786b449a185676b49f002bb37ee7f07987b658d863fb3719ed0"
+    },
+    {
+      "midi": 66,
+      "layer": 8,
+      "sourceFile": "F#4v8.flac",
+      "sourceSha256": "be2dc339e8cec5f2f1da4ff583672dbc518bf5319547a08901b094617ac6998e",
+      "file": "66-v8.mp3",
+      "bytes": 50722,
+      "sha256": "f9c3e9e86971eedef588883295519b615d1ea88249b6fb979b204377d25fb1d2"
+    },
+    {
+      "midi": 66,
+      "layer": 10,
+      "sourceFile": "F#4v10.flac",
+      "sourceSha256": "a9912cc7b9cc3c6f4fae20eeb0d9570f21c164f9a69475dfdcd6f7290b159317",
+      "file": "66-v10.mp3",
+      "bytes": 50722,
+      "sha256": "c20c357f40cc954f1baef8575876ad91d857fe2692c2ef1f921c8f4cab197a57"
+    },
+    {
+      "midi": 69,
+      "layer": 5,
+      "sourceFile": "A4v5.flac",
+      "sourceSha256": "1439c8af22d91f9ae76447aee6a5be11155299e3edad7ed143b5118f29c86e24",
+      "file": "69-v5.mp3",
+      "bytes": 50722,
+      "sha256": "9ddfa08f172cc7bab5a6fd47377a4029cb640152a0ba457a1afcc09b794db486"
+    },
+    {
+      "midi": 69,
+      "layer": 8,
+      "sourceFile": "A4v8.flac",
+      "sourceSha256": "59529694455698d7fd212cde8eec4029eaae8e5e6d454bb48bf36428eaa8009b",
+      "file": "69-v8.mp3",
+      "bytes": 50722,
+      "sha256": "9c287942013a54c609f84427aad0eb4cba39441de160a743e5caa194430fd485"
+    },
+    {
+      "midi": 69,
+      "layer": 10,
+      "sourceFile": "A4v10.flac",
+      "sourceSha256": "9e2aa68c1495c007ee16e8ce5c97cb07ac7249fd4cc77ba759551971d9c01be0",
+      "file": "69-v10.mp3",
+      "bytes": 50722,
+      "sha256": "95b50c4c217429db4f0bcdcd449e341e4382cc647d0f489278b86959bb541963"
+    },
+    {
+      "midi": 72,
+      "layer": 5,
+      "sourceFile": "C5v5.flac",
+      "sourceSha256": "89bc53b493aee1cacddd60d17057f811e10297b5a67203d302979102592ad25a",
+      "file": "72-v5.mp3",
+      "bytes": 35571,
+      "sha256": "5f53463eb92b9242a87c96740658c3c4d853aa4abca326dda2270686439ff690"
+    },
+    {
+      "midi": 72,
+      "layer": 8,
+      "sourceFile": "C5v8.flac",
+      "sourceSha256": "f663242a552aad54113f186a6dd90c907c81d1f6374887a23179814544f78d79",
+      "file": "72-v8.mp3",
+      "bytes": 35571,
+      "sha256": "6147a87fad6b5fe53c09681215427a8a2593f7aa11b523eef5d0f2c697f4aaa3"
+    },
+    {
+      "midi": 72,
+      "layer": 10,
+      "sourceFile": "C5v10.flac",
+      "sourceSha256": "89924ca36674fc1b3f7b99bf503be9f1644f093efa28cbbcedbc885866ec050e",
+      "file": "72-v10.mp3",
+      "bytes": 35571,
+      "sha256": "20bd06e77b7cd0b9576677fdb130f5c456b48885c4198303f2354a1d6cea5a1a"
+    },
+    {
+      "midi": 75,
+      "layer": 5,
+      "sourceFile": "D#5v5.flac",
+      "sourceSha256": "068b7e54ff00df5f7dcf6f21da6e03b07b1931859272f23b4e6de01d81a2b95d",
+      "file": "75-v5.mp3",
+      "bytes": 35571,
+      "sha256": "95cfc74464038660582143640221a9fe4912e2426fe27917269c0c374a49ee3e"
+    },
+    {
+      "midi": 75,
+      "layer": 8,
+      "sourceFile": "D#5v8.flac",
+      "sourceSha256": "f841ad0506994313f4202fbe3f07d917e60eeb10fb3461df3eae4fb9cd58432a",
+      "file": "75-v8.mp3",
+      "bytes": 35571,
+      "sha256": "b9a5d0dffc798e695a493c0973b0e3ee342ef89cde6c0ea82c0de93d5860ee1f"
+    },
+    {
+      "midi": 75,
+      "layer": 10,
+      "sourceFile": "D#5v10.flac",
+      "sourceSha256": "f9b7d545e732b6601b0a0181440cb70bd14eadf37518d9063432b5ef2a9a10fe",
+      "file": "75-v10.mp3",
+      "bytes": 35571,
+      "sha256": "4068c38a3bddb42284407e6e476e01f549ef8cc17eb54313bc02133a55d13053"
+    },
+    {
+      "midi": 78,
+      "layer": 5,
+      "sourceFile": "F#5v5.flac",
+      "sourceSha256": "2213a775a32eab348bf539be74c4ef9f8e89537315e60b51156c41208bc01754",
+      "file": "78-v5.mp3",
+      "bytes": 35571,
+      "sha256": "e0c2259f135f1e187eff80114bb0d746fac8b6da6ac69cd07c209096403a7f45"
+    },
+    {
+      "midi": 78,
+      "layer": 8,
+      "sourceFile": "F#5v8.flac",
+      "sourceSha256": "7757ef988e874313432a3b4ed586f0407fd4a9933b7ccc613b8ff96a2f83bc87",
+      "file": "78-v8.mp3",
+      "bytes": 35571,
+      "sha256": "b334eed9c81dfb676d82d9a103c37fa820d08f3cbd72c0484208894db3501a31"
+    },
+    {
+      "midi": 78,
+      "layer": 10,
+      "sourceFile": "F#5v10.flac",
+      "sourceSha256": "fc02895d148b1c591ac927248e0363c085a46a1ca79524ca67cbbcaab29462e3",
+      "file": "78-v10.mp3",
+      "bytes": 35571,
+      "sha256": "b55bbef00204396976b99d6bb156815dd0c633c94e25741af52dcc0b44b9adad"
+    },
+    {
+      "midi": 81,
+      "layer": 5,
+      "sourceFile": "A5v5.flac",
+      "sourceSha256": "95a3c9d6bec09f30a814440a71e17755b65b0eb2ea4536b99693d1461db0e899",
+      "file": "81-v5.mp3",
+      "bytes": 35571,
+      "sha256": "496a14578de11972eeb57b4b81382243f579259f1f5f837cc10201c1774ba5c5"
+    },
+    {
+      "midi": 81,
+      "layer": 8,
+      "sourceFile": "A5v8.flac",
+      "sourceSha256": "c71f80ecee2dfc37519769ab97e2e92732bfce9314f6562ba884a737cfa018a9",
+      "file": "81-v8.mp3",
+      "bytes": 35571,
+      "sha256": "bd0debdf471d424da452953090a981e7a72a787bf92590567792ce8f023de9be"
+    },
+    {
+      "midi": 81,
+      "layer": 10,
+      "sourceFile": "A5v10.flac",
+      "sourceSha256": "b0a77c5be8aeff9d0e9f02d544833a78612527a8662dea839a3c4514840a0160",
+      "file": "81-v10.mp3",
+      "bytes": 35571,
+      "sha256": "a90293a6725f5efb992bb24848f7695665b0b78085f4b304e67ee503ef2ae983"
+    },
+    {
+      "midi": 84,
+      "layer": 5,
+      "sourceFile": "C6v5.flac",
+      "sourceSha256": "2b9646f3956b7e9d50baf573fb5b45b64fee2e5ff6ec56bd9aa40cde914066bf",
+      "file": "84-v5.mp3",
+      "bytes": 35571,
+      "sha256": "4576963217c4dca657da50f22a5f608af39da4d8221f0fff3975246795c09405"
+    },
+    {
+      "midi": 84,
+      "layer": 8,
+      "sourceFile": "C6v8.flac",
+      "sourceSha256": "e5d5db275007d4b0e35ce94b00e0b53f6c659707517ee1326bd77eeba119693b",
+      "file": "84-v8.mp3",
+      "bytes": 35571,
+      "sha256": "9b70e9d7278cd39127f3d3a40eb1cf8d2099334e074c466c3d9b0ec6ca84bc74"
+    },
+    {
+      "midi": 84,
+      "layer": 10,
+      "sourceFile": "C6v10.flac",
+      "sourceSha256": "d675a759d036e83eb6727b0630ef99767a008d192952449772874d0756e61a96",
+      "file": "84-v10.mp3",
+      "bytes": 35571,
+      "sha256": "c9390f36dd283f7d92e324145e3cc91d50db8ff5745e4aff810ed643d321d9f2"
+    },
+    {
+      "midi": 87,
+      "layer": 5,
+      "sourceFile": "D#6v5.flac",
+      "sourceSha256": "feac0ed06c59a73fdcd0bd8b480330df94134b735a5651e645cdd8ab482f2c30",
+      "file": "87-v5.mp3",
+      "bytes": 35571,
+      "sha256": "228934b952771c0b3fc7c9fb330da47c7e439823a1eec9b41ccccbc8feafde1f"
+    },
+    {
+      "midi": 87,
+      "layer": 8,
+      "sourceFile": "D#6v8.flac",
+      "sourceSha256": "ef9d6d285795ea2ed51c0d0261d7d4997d1041dadc53939363a080edc5dcdc4e",
+      "file": "87-v8.mp3",
+      "bytes": 35571,
+      "sha256": "8515a12885d43025e045a48be2de822269963353c4771e22e27998e76f95644d"
+    },
+    {
+      "midi": 87,
+      "layer": 10,
+      "sourceFile": "D#6v10.flac",
+      "sourceSha256": "7a85145668f950ae6fe256d91de5beb0761af49beae874a09de1b4af3ef1b97c",
+      "file": "87-v10.mp3",
+      "bytes": 35571,
+      "sha256": "263d23b036afd07effbbdf11cf3d85f0ed9a6646ed213d633b8365a6ee9c5aa7"
+    },
+    {
+      "midi": 90,
+      "layer": 5,
+      "sourceFile": "F#6v5.flac",
+      "sourceSha256": "bdcf329fd64a40d7e6033cf2b82f97c25c439d495fc7415d9e26156e534dd28d",
+      "file": "90-v5.mp3",
+      "bytes": 35571,
+      "sha256": "e176f133be863f6153b504ea83d762cf405ba4e4d256c82a298ee30b37d7b872"
+    },
+    {
+      "midi": 90,
+      "layer": 8,
+      "sourceFile": "F#6v8.flac",
+      "sourceSha256": "8dd12f1be1cad3bb4be36c5609ff8426640d6d37b3ef0b9b3eed3b159ae51088",
+      "file": "90-v8.mp3",
+      "bytes": 35571,
+      "sha256": "7a25e5bbaf671873f05f3e27c7f72d8c6dc19cf43c2ba7c393f14061ad43888f"
+    },
+    {
+      "midi": 90,
+      "layer": 10,
+      "sourceFile": "F#6v10.flac",
+      "sourceSha256": "074eafc5b071e9cb32779d2ab710deac0b63851dc3455f7c4eb8452e0f2f6afd",
+      "file": "90-v10.mp3",
+      "bytes": 35571,
+      "sha256": "aeb58274101b635b24179898e5a81cbf65789bbb0043b87b5048d78baec63671"
+    },
+    {
+      "midi": 93,
+      "layer": 5,
+      "sourceFile": "A6v5.flac",
+      "sourceSha256": "f3bb1202c924ac0c06d6208e4bf4228ea43f217ed0eabe8022f041526baf9ebe",
+      "file": "93-v5.mp3",
+      "bytes": 35571,
+      "sha256": "b770a5f7f63763d55d20fdb731df49861371426e1f9f2ccd23953affb70d3b5b"
+    },
+    {
+      "midi": 93,
+      "layer": 8,
+      "sourceFile": "A6v8.flac",
+      "sourceSha256": "6c49808b96392ddec4fd237a89af11fb70ed31da11a6022905f6eb3ae897c989",
+      "file": "93-v8.mp3",
+      "bytes": 35571,
+      "sha256": "6ba0efb45bdb278b584ee6c1e11db9256e3f5cd9622b8b4b371f0a569b7465d1"
+    },
+    {
+      "midi": 93,
+      "layer": 10,
+      "sourceFile": "A6v10.flac",
+      "sourceSha256": "1cb95f5eed403218ed93e44f3167d681d58c7d31e879dc82c157c7ded42eb020",
+      "file": "93-v10.mp3",
+      "bytes": 35571,
+      "sha256": "aa0cd944a0b6ea42e094c852b51b14fac3cddbce1ab48e3b583670b5f8920acb"
+    },
+    {
+      "midi": 96,
+      "layer": 5,
+      "sourceFile": "C7v5.flac",
+      "sourceSha256": "ca222f236806a564b17f199843e7befb176a8a2c0194dcfc86153bee9adbb6c7",
+      "file": "96-v5.mp3",
+      "bytes": 35571,
+      "sha256": "2b2096f0a2b336cb1259de7507cd5848be218805f9d0f73d3732bcf196f8a4f6"
+    },
+    {
+      "midi": 96,
+      "layer": 8,
+      "sourceFile": "C7v8.flac",
+      "sourceSha256": "fbe68e0670fd7edd46923e983da11a97ca7d2b8826585258b81918f97e268b68",
+      "file": "96-v8.mp3",
+      "bytes": 35571,
+      "sha256": "a47f0da5ef03b481fcb377ee80748153382dba59a8a74342ff459d2784883977"
+    },
+    {
+      "midi": 96,
+      "layer": 10,
+      "sourceFile": "C7v10.flac",
+      "sourceSha256": "1e2d3cc638f35982e895fb4c4f679c03d73533d1cba3cf33439cbf0b38250f11",
+      "file": "96-v10.mp3",
+      "bytes": 35571,
+      "sha256": "d12e399b2266281620bde0d1112ecd7e875e5d637540d14cf158fae85f6940ff"
+    },
+    {
+      "midi": 99,
+      "layer": 5,
+      "sourceFile": "D#7v5.flac",
+      "sourceSha256": "f7b49b99ae72b26d100174efa707736597dcc1c474673924297a090bf1ce8f93",
+      "file": "99-v5.mp3",
+      "bytes": 35571,
+      "sha256": "0c2de7559c633a9dba669c0a1d32aaf3db93f0e618669e839ef90de9812ae8dc"
+    },
+    {
+      "midi": 99,
+      "layer": 8,
+      "sourceFile": "D#7v8.flac",
+      "sourceSha256": "848aea2c59fe175ff0d4772d6828a5f71e1869ac0aadb5c4dd1e065e2cd8cc53",
+      "file": "99-v8.mp3",
+      "bytes": 35571,
+      "sha256": "8cd64c1d4136434f06787afc74a248cb6bc183531700a32e456ca0c7ec478286"
+    },
+    {
+      "midi": 99,
+      "layer": 10,
+      "sourceFile": "D#7v10.flac",
+      "sourceSha256": "0f4d971f44a6008a6de39e2d13ebe64a948df05869a67acf17df3276e855bee1",
+      "file": "99-v10.mp3",
+      "bytes": 35571,
+      "sha256": "a015c06fece0df40bbf7cdd1586fd5ad36a31a1469689d9f8dd6017648b32128"
+    },
+    {
+      "midi": 102,
+      "layer": 5,
+      "sourceFile": "F#7v5.flac",
+      "sourceSha256": "40319a1482e2b0132edb2fa0e82d281e78cff59ddaf254032a281d2e87f7e5d2",
+      "file": "102-v5.mp3",
+      "bytes": 35571,
+      "sha256": "32047f390a5d5723bc890b1b6c3c7d2c158741e4ddecd2aa96f13f4b8042efbd"
+    },
+    {
+      "midi": 102,
+      "layer": 8,
+      "sourceFile": "F#7v8.flac",
+      "sourceSha256": "4cc707928d34b8d56b23571d75eb8ce13c4161ae2f649a822b0fd407e0aa1131",
+      "file": "102-v8.mp3",
+      "bytes": 35571,
+      "sha256": "676accdd4a2412510b21bd9140465f1695c714f2b7064bb50157365887764807"
+    },
+    {
+      "midi": 102,
+      "layer": 10,
+      "sourceFile": "F#7v10.flac",
+      "sourceSha256": "ecd0bf9110491bfdd2ae7a1a101890b51d626f05898ea9780468c145d7f8be45",
+      "file": "102-v10.mp3",
+      "bytes": 35571,
+      "sha256": "6eec443a6e007cdd197b874921c48b6008f8e56089c5962ae168625596b941f7"
+    },
+    {
+      "midi": 105,
+      "layer": 5,
+      "sourceFile": "A7v5.flac",
+      "sourceSha256": "d2180f82dbab5944a7d2fa8c5698dc80087f1603fa2c7c37964c132a83b446b5",
+      "file": "105-v5.mp3",
+      "bytes": 35571,
+      "sha256": "f8ac49eb1ed46170e1b1cf1adc8b77e7068f3084c17e3853acd8961de7a44318"
+    },
+    {
+      "midi": 105,
+      "layer": 8,
+      "sourceFile": "A7v8.flac",
+      "sourceSha256": "5da612cb53df006ec83101ecdf00f15b8c2a5f7d98a63eceb310ebfd2cb82ea8",
+      "file": "105-v8.mp3",
+      "bytes": 35571,
+      "sha256": "e821b03a9618aa1b934e90a9f1695f79100b9c0e26cad4258055cd434fb4b12c"
+    },
+    {
+      "midi": 105,
+      "layer": 10,
+      "sourceFile": "A7v10.flac",
+      "sourceSha256": "4dbf1e500f9c0ea6e88992cdf475b901462adb27e3ed37299d89f128b8b52194",
+      "file": "105-v10.mp3",
+      "bytes": 35571,
+      "sha256": "3f38bdf73bdc02f582a30a9a5d923a6c3cdc7454b8a6a9f9f02f6cd1a3fc6c36"
+    },
+    {
+      "midi": 108,
+      "layer": 5,
+      "sourceFile": "C8v5.flac",
+      "sourceSha256": "cd89fbbd6b4a3c71d5e84eeb3203a23b0b6643c1f500945e70557a5e96a203d0",
+      "file": "108-v5.mp3",
+      "bytes": 28518,
+      "sha256": "0e161a946a9ae1c2b39f1ecff3c05aa3f126b191d2cb705be383b38989c3451e"
+    },
+    {
+      "midi": 108,
+      "layer": 8,
+      "sourceFile": "C8v8.flac",
+      "sourceSha256": "85e4b0349c420358a280aa38cee25948e950a5a13af31317018ae66f5b9ef73c",
+      "file": "108-v8.mp3",
+      "bytes": 35571,
+      "sha256": "0738af5be8fef96b404e6892eb4d801ac628de15bcb57231837c74a8bb2c24a5"
+    },
+    {
+      "midi": 108,
+      "layer": 10,
+      "sourceFile": "C8v10.flac",
+      "sourceSha256": "3907415dcf4efdbcc0c7b2ce1215a90a84dac9cd4b717f9b0f02609811a7c6e9",
+      "file": "108-v10.mp3",
+      "bytes": 35571,
+      "sha256": "b12858fa5ab466c0880b2e0353c2c7fc236188a58f4e26264f5f8762ad1a0fde"
+    }
+  ]
+}

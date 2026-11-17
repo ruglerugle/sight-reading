@@ -84,9 +84,12 @@ const Demo = (() => {
     let t0 = 0;   // ctx の時刻で、お手本の from 秒にあたる時刻
     let from = 0; // どこから鳴らすか（秒）
     let timer = 0;
+    let cancelSchedule = null; // optional rolling-scheduler cleanup; existing callers stay valid
     // 予約した音を消す（ぷつっと鳴らないように、ごく短く小さくしてから切り離す）
     const cut = () => {
       clearTimeout(timer);
+      cancelSchedule?.();
+      cancelSchedule = null;
       if (!bus) return;
       const b = bus;
       bus = null;
@@ -99,7 +102,8 @@ const Demo = (() => {
       bus = ctx.createGain();
       bus.connect(out);
       t0 = ctx.currentTime + 0.06;
-      schedule(bus, t0, from);
+      const cleanup = schedule(bus, t0, from);
+      cancelSchedule = typeof cleanup === 'function' ? cleanup : null;
       timer = setTimeout(end, (len - from) * 1000 + 400);
     };
     const h = bind(btn, {

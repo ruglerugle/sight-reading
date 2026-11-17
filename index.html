@@ -616,7 +616,7 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
   </div>
 </section>
 
-<footer>MIDI入力は Chrome / Edge で使えます（Safari は非対応）。<br><a href="https://habatakijuku.com/">羽ばたき塾</a>・<a href="https://habatakijuku.com/legal/tokushoho.html">特定商取引法に基づく表記</a>・<a href="https://habatakijuku.com/legal/terms.html">利用規約</a>・<a href="https://habatakijuku.com/legal/privacy.html">プライバシーポリシー</a><br>歌の練習は <a href="https://vocal-trainer.habatakijuku.com/">ヴォーカルトレーナー</a> へ。</footer>
+<footer>MIDI入力は Chrome / Edge で使えます（Safari は非対応）。<br><a href="https://habatakijuku.com/">羽ばたき塾</a>・<a href="https://habatakijuku.com/legal/tokushoho.html">特定商取引法に基づく表記</a>・<a href="https://habatakijuku.com/legal/terms.html">利用規約</a>・<a href="https://habatakijuku.com/legal/privacy.html">プライバシーポリシー</a><br>歌の練習は <a href="https://vocal-trainer.habatakijuku.com/">ヴォーカルトレーナー</a> へ。<br><a href="audio/piano/credits.html">ピアノ音源のクレジット</a></footer>
 
 <!-- 設定 -->
 <dialog id="settingsDlg" class="sheet-dlg" aria-labelledby="settingsTitle">
@@ -848,13 +848,14 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
 <script src="game.js?v=11"></script>
 <script src="timing.js?v=2"></script>
 <script src="assess.js?v=1"></script>
-<script src="song-mode.js?v=17"></script>
+<script src="song-mode.js?v=18"></script>
 <script src="record-sync.js?v=1"></script>
 <script src="billing.js?v=11"></script>
 <script src="ui.js?v=8"></script>
 <script src="studio.js?v=1"></script>
 <script src="mixer.js?v=2"></script>
-<script src="demo.js?v=1"></script>
+<script src="demo.js?v=2"></script>
+<script src="piano.js?v=1"></script>
 <script>
 'use strict';
 const VF = Vex.Flow;
@@ -1194,6 +1195,7 @@ const buildKeyboard = () => {
   const lo = Math.floor(Math.min(...midis) / 12) * 12;
   const hi = Math.ceil((Math.max(...midis) + 1) / 12) * 12;
   kbRange = [lo, hi];
+  if (audio?.piano) audio.piano.preload(midis);
   const kb = $('kb');
   kb.innerHTML = '';
   const whiteW = 26;
@@ -1214,7 +1216,7 @@ const buildKeyboard = () => {
     }
     key.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      beep(m);
+      playPiano(m);
       handleNote(m);
     });
     kb.appendChild(key);
@@ -1278,18 +1280,26 @@ const flashKey = (midi, cls, ms = 350) => {
 const clearHints = () => document.querySelectorAll('.key.hint').forEach((k) => k.classList.remove('hint'));
 
 // ---- 音（画面の鍵盤・PCキー用）----
-let audio = null; // { ctx, out, wave }
+let audio = null; // { ctx, out, wave, piano, pianoOut }
 const getAudio = () => {
   if (audio) return audio;
   // iPhone のマナーモードでも鳴らす（Safari 16.4+）
   if (navigator.audioSession) navigator.audioSession.type = 'playback';
-  const ctx = new AudioContext();
+  const ctx = new AudioContext({ latencyHint: 'interactive' });
   const out = ctx.createDynamicsCompressor();
   out.connect(ctx.destination);
   // ピアノ風：倍音を少しずつ弱めた波形
   const amps = [0, 1, 0.55, 0.3, 0.18, 0.1, 0.06, 0.03];
   const wave = ctx.createPeriodicWave(new Float32Array(amps.length), Float32Array.from(amps));
-  audio = { ctx, out, wave };
+  const pianoOut = ctx.createGain();
+  pianoOut.connect(ctx.destination);
+  let piano = null;
+  if (typeof WarmPiano !== 'undefined') {
+    try { piano = WarmPiano.create(ctx, pianoOut, (m, at, dest) => beep(m, at, dest)); }
+    catch (e) { console.warn('録音ピアノを初期化できませんでした', e); }
+  }
+  audio = { ctx, out, wave, piano, pianoOut };
+  piano?.preload(Array.from({ length: kbRange[1] - kbRange[0] + 1 }, (_, i) => kbRange[0] + i));
   return audio;
 };
 
@@ -1335,6 +1345,15 @@ const beep = (midi, at = 0, dest = null) => {
     console.warn('音を鳴らせませんでした', e);
     return null;
   }
+};
+
+// The original beep remains for UI feedback and loading/offline fallback.
+const playPiano = (midi, at = 0, dest = null, options = {}) => {
+  try {
+    const { ctx, pianoOut, piano } = getAudio();
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    return piano ? piano.play(midi, at, dest || pianoOut, options) : beep(midi, at, dest);
+  } catch (e) { console.warn('ピアノを鳴らせませんでした', e); return beep(midi, at, dest); }
 };
 
 // ---- 進行 ----
@@ -1896,7 +1915,7 @@ document.addEventListener('keydown', (e) => {
   if (k === 'x') { pcOctave = Math.min(kbRange[1] - 12, pcOctave + 12); showPcOctave(); return; }
   if (k in PC_KEYS) {
     const m = pcOctave + PC_KEYS[k];
-    beep(m);
+    playPiano(m);
     handleNote(m);
   }
 });
