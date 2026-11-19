@@ -11,10 +11,26 @@ const TEMPO_WINDOW = 150; // テンポの判定：このミリ秒以内のずれ
 const SONG_W = 360;       // 曲の譜面の幅（viewBox）
 
 // [欄の名前, 見出し, 説明]。オリジナル曲（original: true。元の曲の音源つき）はジャンルに関係なく別の欄にまとめる
-const SONG_GENRES = [['sight', '初見チャレンジ（毎日かわる・自動作曲）'], ['classic', 'クラシック・民謡'], ['etude', '王道の練習曲（ブルグミュラー）'], ['jazz', 'ジャズ（オリジナル練習曲）'], ['original', 'オリジナル曲', '元の曲の音源に合わせて練習']];
+const SONG_GENRES = [['sight', '初見チャレンジ（毎日かわる・自動作曲）'], ['classic', 'クラシック・民謡'], ['etude', '王道の練習曲（ブルグミュラー）'], ['beyer', 'バイエル（ピアノ教則本）'], ['jazz', 'ジャズ（オリジナル練習曲）'], ['original', 'オリジナル曲', '元の曲の音源に合わせて練習']];
 const songGroupOf = (s) => (s.original ? 'original' : s.genre || 'classic');
 const HAND_SETS = { rh: ['rh'], lhs: ['lhs'], bothS: ['rh', 'lhs'], lh: ['lh'], both: ['rh', 'lh'] };
 const HAND_LABEL = { rh: '右手', lhs: '左手（簡易）', bothS: '両手（簡易）', lh: '左手', both: '両手' };
+
+// High treble ledger notes may extend above the SVG; add space only to the system that needs it.
+const songSystemPositions = (systems, upperNotes, systemHeight) => {
+  let height = 0;
+  const ys = systems.map((measures) => {
+    let highest = 44; // E6 and below fit the existing upper margin.
+    for (const n of upperNotes) if (measures.includes(n.measure)) {
+      for (const k of n.keys) highest = Math.max(highest, k.step);
+    }
+    const headroom = highest > 44 ? (highest - 44) * 5 + 2 : 0;
+    const y = height + headroom;
+    height = y + systemHeight;
+    return y;
+  });
+  return { ys, height };
+};
 
 const parsePitch = (s) => {
   const m = /^([a-g])(#|b)?(\d)$/.exec(s);
@@ -257,7 +273,7 @@ const renderSong = () => {
   const SYS_H = both ? 240 : 115;
   const systems = [];
   for (let m = a; m < b; m += 2) systems.push([...Array(Math.min(2, b - m)).keys()].map((k) => m + k));
-  const H = systems.length * SYS_H;
+  const { ys: systemYs, height: H } = songSystemPositions(systems, upper ? c[upper] : [], SYS_H);
   const renderer = new VF.Renderer(el, VF.Renderer.Backends.SVG);
   renderer.resize(SONG_W, H);
   const ctx = renderer.getContext();
@@ -292,7 +308,7 @@ const renderSong = () => {
   };
 
   systems.forEach((ms, si) => {
-    const y = si * SYS_H;
+    const y = systemYs[si];
     const firstOfPage = si === 0;
     const decorate = (stave, clef, isFirst) => {
       if (!isFirst) return stave;
