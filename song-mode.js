@@ -819,19 +819,58 @@ const playSongDemo = () => {
   if (r.tempo && r.state === 'play') return; // テンポの練習中は鳴らさない
   stopSongAudio();
   pauseSongMixer();
-  const { ctx, out } = getAudio();
+  const { ctx, out, piano, pianoOut } = getAudio();
   const pct = r.step.kind === 'tempo' ? r.step.pct : 80;
   const spb = 60 / ((r.song.tempo * pct) / 100);
-  const t0 = r.events[0].t;
-  const at = (e) => (playBeat(r.song, e.t) - t0) * spb; // お手本の頭からの秒
-  // 一時停止・停止できるように、demo.js でお手本だけの GainNode を通して鳴らす
+  if (!piano) {
+    if (!r.events.length) return;
+    const at = (e) => (playBeat(r.song, e.t) - r.events[0].t) * spb;
+    Demo.play($('demoBtn'), {
+      ctx, out, len: at(r.events[r.events.length - 1]) + 1.5,
+      schedule: (bus, start, from) => r.events.forEach((e) => {
+        if (at(e) >= from - 0.005) e.keys.forEach((k) => beep(k.midi, start + at(e) - from, bus));
+      }),
+    });
+    return;
+  }
+  const range = r.loopRange || r.step.range;
+  const fromBeat = r.c.starts[range[0]];
+  const toBeat = r.c.starts[range[1]] ?? r.c.lens.reduce((sum, n) => sum + n, 0);
+  const hands = HAND_SETS[r.step.hands].map((h) => r.c[h].map((n) => ({
+    ...n, midis: n.keys.map((k) => stepToMidi(k.step, k.acc)),
+  })));
+  const notes = WarmPiano.plan(hands, fromBeat, toBeat, (beat) => playBeat(r.song, beat) * spb);
+  if (!notes.length) return;
+  piano.preload(notes.map((n) => n.midi));
+  const len = Math.max(...notes.map((n) => n.time + n.duration + WarmPiano.releaseOf(n.midi))) + .5;
   Demo.play($('demoBtn'), {
-    ctx, out,
-    len: at(r.events[r.events.length - 1]) + 1.5,
-    schedule: (bus, start, from) => r.events.forEach((e) => {
-      if (at(e) < from - 0.005) return;
-      e.keys.forEach((k) => beep(k.midi, start + at(e) - from, bus));
-    }),
+    ctx, out: pianoOut, len,
+    schedule: (bus, start, from) => {
+      // Bound source count and allow stop/pause to cancel future work immediately.
+      const remaining = notes.filter((n) => n.time + n.duration > from + .005);
+      let next = 0, stopped = false;
+      const tick = () => {
+        if (stopped) return;
+        const until = ctx.currentTime + .15;
+        while (next < remaining.length && start + Math.max(0, remaining[next].time - from) <= until) {
+          const n = remaining[next++], elapsed = Math.max(0, from - n.time);
+          const when = start + Math.max(0, n.time - from);
+          // A suspended/background tab must not fire a backlog on return.
+          const late = Math.max(0, ctx.currentTime - when);
+          if (late >= n.duration - elapsed) continue;
+          playPiano(n.midi, Math.max(ctx.currentTime, when), bus, {
+            velocity: n.velocity, duration: n.duration - elapsed - late, offset: n.offset + elapsed + late,
+          });
+        }
+      };
+      tick();
+      const timer = setInterval(tick, 25);
+      return () => {
+        stopped = true; clearInterval(timer);
+        // Demo's own bus fades for 80ms first, including all room tails.
+        setTimeout(() => piano.stopRoute(bus), 85);
+      };
+    },
   });
 };
 
