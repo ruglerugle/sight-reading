@@ -1074,7 +1074,7 @@ const buildIntervals = (ivs, n) => {
 
 // ---- 状態 ----
 let current = null;   // { notes: [{ clef, step, acc }], pos: 次に弾く音の番号, chord?: 和音の記号, down?: 押さえている音 }
-let played = null;    // 間違えた音 { clef, step, acc }（単音のときだけ譜面に出す）
+const heldInputs = new Map(); // pointer / PC key / MIDI source, separately for each physical press
 let state = 'ask';    // ask | done | result
 let shownAt = 0;      // 問題を出した時刻
 let noteAt = 0;       // いま弾く音の番になった時刻
@@ -1092,7 +1092,63 @@ const hintText = () => (settings.hint && current ? namesOf(current.notes) : '');
 const W = 300;
 const $ = (id) => document.getElementById(id);
 
+// The feedback layer is independent of VexFlow voices: it cannot change layout.
+let wrongLayout = null;
+const wrongNode = (tag, attrs) => {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [name, value] of Object.entries(attrs)) el.setAttribute(name, value);
+  return el;
+};
+const drawWrong = () => {
+  if (!wrongLayout) return;
+  const { layer, staves, anchors, H } = wrongLayout;
+  layer.replaceChildren();
+  if (!current || state !== 'ask') return;
+  const x = anchors[current.down ? 0 : current.pos];
+  if (!Number.isFinite(x)) return;
+  const drawn = new Set();
+  for (const { midi, wrong } of heldInputs.values()) {
+    if (!wrong || wrong.question !== current || wrong.pos !== current.pos || drawn.has(midi)) continue;
+    drawn.add(midi);
+    const { clef, acc } = wrong;
+    const stave = staves[clef];
+    if (!stave) continue;
+    const bottom = CLEF_BOTTOM[clef];
+    const yAt = (step) => stave.getYForLine(4 - (step - bottom) / 2);
+    let step = wrong.step, octave = 0;
+    // Very distant notes are octave-marked rather than enlarging/scaling the target staff.
+    while (yAt(step) < 8) { step -= 7; octave++; }
+    while (yAt(step) > H - 8) { step += 7; octave--; }
+    const y = yAt(step);
+    const g = wrongNode('g', { 'data-wrong-note': midi, 'data-note-x': x });
+    const top = bottom + 8;
+    const ledger = (s) => g.append(wrongNode('line', { x1: x - 9, x2: x + 9, y1: yAt(s), y2: yAt(s), stroke: 'currentColor', 'stroke-width': 1.2 }));
+    for (let s = bottom - 2; s >= step; s -= 2) ledger(s);
+    for (let s = top + 2; s <= step; s += 2) ledger(s);
+    g.append(wrongNode('ellipse', { cx: x, cy: y, rx: 8, ry: 4.8, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }));
+    const referenceNotes = current.down ? current.notes : [target()];
+    const targetOnLine = referenceNotes.some((q) => q.clef === clef && q.step === step && q.acc);
+    if (acc || targetOnLine) {
+      const a = wrongNode('text', { x: x - (targetOnLine ? 27 : 17), y: y + 4.5, fill: 'currentColor', 'font-size': 17, 'text-anchor': 'middle' });
+      a.textContent = acc === 1 ? '♯' : acc === -1 ? '♭' : '♮';
+      g.append(a);
+    }
+    if (octave) {
+      const label = wrongNode('text', { x: x + 11, y: y + 3, fill: 'currentColor', 'font-size': 8 });
+      label.textContent = (octave > 0 ? '+' : '−') + Math.abs(octave) + 'oct';
+      g.append(label);
+    }
+    layer.append(g);
+  }
+};
+
+const showWrong = (input, spelling, clef) => {
+  if (input) input.wrong = { question: current, pos: current.pos, clef, ...spelling };
+  drawWrong();
+};
+
 const render = (colorQ) => {
+  wrongLayout = null;
   if (progress.mode === 'song') {
     renderSong();
     return;
@@ -1137,7 +1193,6 @@ const render = (colorQ) => {
         // 音程のステージ：弾けた音（答えを見たときは全部）の下に、前の音からの度数を出す
         ann: current.iv && i > 0 && (colorQ || i < current.pos) ? ivLabel(current.notes[i - 1], q).replace('上', '↑').replace('下', '↓') : '',
       }));
-  if (played) slots.push({ clef: played.clef, keys: [played], color: getComputedStyle(document.documentElement).getPropertyValue('--ng').trim() });
 
   const makeNote = (slot) => {
     const n = new VF.StaveNote({ keys: slot.keys.map((k) => vfKey(k.step, k.acc)), duration: 'w', clef: slot.clef });
@@ -1162,13 +1217,19 @@ const render = (colorQ) => {
   };
 
   const center = x + (W - x - 10) / 2 + 10;
-  // 単音は真ん中（間違えた音は右に並べる）、複数の音は音部記号の後ろから等間隔に並べる
+  // 単音は真ん中、複数の音は音部記号の後ろから等間隔に並べる
   const multi = !current.down && current.notes.length > 1;
   const startX = multi ? Object.values(staves)[0].getNoteStartX() + 12 : 0;
-  const spread = multi ? W - 20 - startX - 30 : slots.length === 1 ? 0 : 90;
+  const spread = multi ? W - 20 - startX - 30 : 0;
+  const targetNotes = [];
   const voices = Object.entries(staves).map(([clef, stave]) => {
     stave.setNoteStartX(multi ? startX : center - spread / 2 - 10);
-    const ticks = slots.map((q) => (q.clef === clef ? makeNote(q) : new VF.GhostNote({ duration: 'w' })));
+    const ticks = slots.map((q, i) => {
+      if (q.clef !== clef) return new VF.GhostNote({ duration: 'w' });
+      const note = makeNote(q);
+      targetNotes[i] = note;
+      return note;
+    });
     const voice = new VF.Voice({ num_beats: 4 * slots.length, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
     voice.addTickables(ticks);
     return { voice, stave };
@@ -1184,6 +1245,16 @@ const render = (colorQ) => {
   svg.removeAttribute('height');
   svg.style.width = '100%';
   svg.style.height = 'auto';
+  const layer = wrongNode('g', { class: 'wrong-note-overlay', 'aria-hidden': 'true', 'pointer-events': 'none' });
+  layer.style.color = 'var(--ng)';
+  svg.append(layer);
+  const anchors = targetNotes.map((note) => {
+    const head = note.getSVGElement()?.querySelector('.vf-notehead');
+    const box = head?.getBBox();
+    return box && box.width > 0 ? box.x + box.width / 2 : note.getAbsoluteX() + 7;
+  });
+  wrongLayout = { layer, staves, anchors, H };
+  drawWrong();
 };
 
 // ---- 画面の鍵盤 ----
@@ -1216,8 +1287,10 @@ const buildKeyboard = () => {
     }
     key.addEventListener('pointerdown', (e) => {
       e.preventDefault();
+      // Capture mouse as well as touch so release outside the key clears its note.
+      try { key.setPointerCapture(e.pointerId); } catch (_) { /* global pointerup/cancel also handle release */ }
       playPiano(m);
-      handleNote(m);
+      pressInput('pointer:' + e.pointerId, m);
     });
     kb.appendChild(key);
   }
@@ -1394,7 +1467,6 @@ const nextQuestion = () => {
     }
     current = { notes, pos: 0 };
   }
-  played = null;
   misses = 0;
   noteMisses = 0;
   state = 'ask';
@@ -1481,13 +1553,14 @@ const recordChord = () => {
   });
 };
 
-const chordNoteOn = (midi) => {
+const chordNoteOn = (midi, input) => {
   const idx = current.notes.findIndex((q) => matches(midi, q));
   if (idx < 0) {
     chordMiss(midi);
     misses++;
     session.streak = 0;
     const sp = midiToSpelling(midi, current.notes.some((q) => q.acc === -1));
+    showWrong(input, sp, settings.clef === 'grand' ? (midi >= 60 ? 'treble' : 'bass') : current.notes[0].clef);
     flashKey(midi, 'ng');
     setFeedback('ng', `× 和音にない音 ${noteLabel(sp.step, sp.acc, settings.naming)}`);
     if (misses >= 2) {
@@ -1513,11 +1586,10 @@ const chordNoteOn = (midi) => {
 const noteOff = (midi) => {
   if (progress.mode === 'song') return;
   if (!current || !current.down || state !== 'ask') return;
-  current.down.delete(midi);
-  render();
+  if (current.down.delete(midi)) render();
 };
 
-const handleNote = (midi) => {
+const handleNote = (midi, input) => {
   // 設定などの画面が開いているときは弾いても進めない。ホームなどで弾いたら練習の画面へ移る
   if (document.querySelector('dialog[open]')) return;
   if (document.body.dataset.view !== 'play') {
@@ -1531,7 +1603,7 @@ const handleNote = (midi) => {
   }
   if (!current || state !== 'ask') return;
   if (current.down) {
-    chordNoteOn(midi);
+    chordNoteOn(midi, input);
     return;
   }
   const q = target();
@@ -1544,7 +1616,6 @@ const handleNote = (midi) => {
     current.pos++;
     noteMisses = 0;
     noteAt = now;
-    played = null;
     // 残りの音がある
     if (current.pos < current.notes.length) {
       render();
@@ -1560,9 +1631,8 @@ const handleNote = (midi) => {
   noteMisses++;
   session.streak = 0;
   const sp = midiToSpelling(midi, q.acc === -1);
-  if (!multi) played = { clef: settings.clef === 'grand' ? (midi >= 60 ? 'treble' : 'bass') : q.clef, ...sp };
+  showWrong(input, sp, settings.clef === 'grand' ? (midi >= 60 ? 'treble' : 'bass') : q.clef);
   flashKey(midi, 'ng');
-  render();
   setFeedback('ng', `× ${multi ? `${current.pos + 1}つ目の音で ` : ''}弾いた音は ${noteLabel(sp.step, sp.acc, settings.naming)}`);
   if (noteMisses >= 2) {
     showName(`${multi ? `${current.pos + 1}つ目は ` : ''}${noteLabel(q.step, q.acc, settings.naming)}`);
@@ -1889,6 +1959,29 @@ $('resetBtn').addEventListener('click', () => {
   updateStats();
 });
 
+const pressInput = (id, midi, device = null) => {
+  const input = { midi, device, wrong: null };
+  heldInputs.set(id, input);
+  handleNote(midi, input);
+};
+const releaseInput = (id) => {
+  const input = heldInputs.get(id);
+  if (!input) return;
+  heldInputs.delete(id);
+  // Screen + PC chord scoring is cumulative; only actual MIDI releases affect it.
+  if (input.device !== null && ![...heldInputs.values()].some((p) => p.device !== null && p.midi === input.midi)) noteOff(input.midi);
+  if (input.wrong) drawWrong();
+};
+for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+  window.addEventListener(event, (e) => releaseInput('pointer:' + e.pointerId), true);
+}
+const clearHeld = () => {
+  for (const id of heldInputs.keys()) releaseInput(id);
+};
+window.addEventListener('blur', clearHeld);
+window.addEventListener('pagehide', clearHeld);
+document.addEventListener('visibilitychange', () => { if (document.hidden) clearHeld(); });
+
 // ---- PCキーボード ----
 const PC_KEYS = { a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11, k: 12 };
 let pcOctave = 60;
@@ -1916,9 +2009,10 @@ document.addEventListener('keydown', (e) => {
   if (k in PC_KEYS) {
     const m = pcOctave + PC_KEYS[k];
     playPiano(m);
-    handleNote(m);
+    pressInput('pc:' + (e.code || k), m);
   }
 });
+document.addEventListener('keyup', (e) => releaseInput('pc:' + (e.code || e.key.toLowerCase())));
 
 // ---- MIDI ----
 // 上のバーには短く、くわしい説明は設定と鍵盤の下に出す
@@ -1931,11 +2025,17 @@ const setMidiStatus = (cls, text) => {
   $('midiHelp').textContent = cls === 'on' ? text : 'MIDIがないときは、画面の鍵盤を押して弾けます。';
 };
 
-const onMidiMessage = (e) => {
+const onMidiMessage = (e, device) => {
   const [status, note, vel] = e.data;
   const type = status & 0xf0;
-  if (type === 0x90 && vel > 0) handleNote(note);
-  else if (type === 0x80 || type === 0x90) noteOff(note);
+  const channel = status & 15;
+  const id = JSON.stringify([device, channel, note]);
+  if (!Number.isInteger(note) || note < 0 || note > 127) return;
+  if (type === 0x90 && vel > 0) pressInput(id, note, device);
+  else if (type === 0x80 || type === 0x90) releaseInput(id);
+  else if (type === 0xb0 && (note === 120 || note === 123)) {
+    for (const [k, p] of heldInputs) if (p.device === device && JSON.parse(k)[1] === channel) releaseInput(k);
+  }
 };
 
 const initMidi = async () => {
@@ -1946,8 +2046,10 @@ const initMidi = async () => {
   try {
     const access = await navigator.requestMIDIAccess();
     const update = () => {
-      const inputs = [...access.inputs.values()];
-      inputs.forEach((i) => { i.onmidimessage = onMidiMessage; });
+      const inputs = [...access.inputs.values()].filter((i) => i.state === 'connected');
+      const connected = new Set(inputs.map((i) => i.id));
+      for (const [k, p] of heldInputs) if (p.device !== null && !connected.has(p.device)) releaseInput(k);
+      inputs.forEach((i) => { i.onmidimessage = (e) => onMidiMessage(e, i.id); });
       if (inputs.length) setMidiStatus('on', `接続中: ${inputs.map((i) => i.name).join('、')}`);
       else setMidiStatus('off', 'MIDI機器が見つかりません（つなぐと自動で認識します）');
     };
