@@ -37,12 +37,13 @@ function setup() {
     source('const onMidiMessage = (e, device)', 'const initMidi ='),
     'const noteOff = n => releases.push(n);',
     "const handleNote = (midi, p) => showWrong(p, { step: midi === 98 ? 49 : 30 + midi - 64, acc: 0 }, 'treble');",
-    'wrongLayout = { layer, staves: { treble: { getYForLine: n => 26 + n * 10 } }, anchors: [120, 205], H: 92 };',
+    'wrongLayout = { layer, staves: { treble: { getYForLine: n => 26 + n * 10 } }, anchors: [120, 205], headGlyph: { d: "M1 2C3 4 5 6 7 8Z", fillRule: "evenodd", x: 110, y: 66 }, H: 92 };',
     'this.api = { pressInput, releaseInput, onMidiMessage, drawWrong };',
   ].join('\n'), sandbox);
   return { ...sandbox.api, windowEvents, docEvents, layer, current, releases, document, targetDrawing, staff };
 }
 const notes = a => a.layer.children.map(n => Number(n.attrs['data-wrong-note']));
+const head = note => note.children.find(n => n.tag === 'path' && n.attrs.class === 'wrong-note-head');
 
 test('wrong notes align to the active target, preserve the target DOM, and release individually', () => {
   const a = setup();
@@ -50,6 +51,15 @@ test('wrong notes align to the active target, preserve the target DOM, and relea
   a.pressInput('pc:KeyE', 65);
   assert.deepEqual(notes(a), [64, 65]);
   assert.deepEqual(a.layer.children.map(x => x.attrs['data-note-x']), ['120', '120']);
+  const [unison, differentPitch] = a.layer.children.map(head);
+  assert.equal(differentPitch.attrs.d, 'M1 2C3 4 5 6 7 8Z');
+  assert.equal(differentPitch.attrs['fill-rule'], 'evenodd');
+  assert.equal(differentPitch.attrs.transform, 'translate(10 -5)');
+  assert.equal(differentPitch.attrs.fill, 'currentColor');
+  assert.equal(unison.attrs.transform, 'translate(10 0)');
+  assert.equal(unison.attrs.fill, 'none'); // the original black shape is not painted over
+  assert.equal(unison.attrs.stroke, 'currentColor');
+  assert.ok(a.layer.children.every(g => g.children.every(n => n.tag !== 'ellipse')));
   assert.equal(a.layer.children[0].children.find(x => x.tag === 'text').textContent, '♮');
   a.windowEvents.pointercancel({ pointerId: 5 });
   assert.deepEqual(notes(a), [65]);
