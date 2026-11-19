@@ -1101,11 +1101,11 @@ const wrongNode = (tag, attrs) => {
 };
 const drawWrong = () => {
   if (!wrongLayout) return;
-  const { layer, staves, anchors, H } = wrongLayout;
+  const { layer, staves, anchors, headGlyph, H } = wrongLayout;
   layer.replaceChildren();
   if (!current || state !== 'ask') return;
   const x = anchors[current.down ? 0 : current.pos];
-  if (!Number.isFinite(x)) return;
+  if (!Number.isFinite(x) || !headGlyph) return;
   const drawn = new Set();
   for (const { midi, wrong } of heldInputs.values()) {
     if (!wrong || wrong.question !== current || wrong.pos !== current.pos || drawn.has(midi)) continue;
@@ -1125,8 +1125,16 @@ const drawWrong = () => {
     const ledger = (s) => g.append(wrongNode('line', { x1: x - 9, x2: x + 9, y1: yAt(s), y2: yAt(s), stroke: 'currentColor', 'stroke-width': 1.2 }));
     for (let s = bottom - 2; s >= step; s -= 2) ledger(s);
     for (let s = top + 2; s <= step; s += 2) ledger(s);
-    g.append(wrongNode('ellipse', { cx: x, cy: y, rx: 8, ry: 4.8, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }));
     const referenceNotes = current.down ? current.notes : [target()];
+    const atTargetPitch = referenceNotes.some((q) => q.clef === clef && q.step === step);
+    // Reuse the actual VexFlow whole-note outline with no new tick or format pass.
+    // At the same staff position (e.g. D vs. D♯), outline it in red so the black glyph remains visible.
+    g.append(wrongNode('path', {
+      class: 'wrong-note-head', d: headGlyph.d, 'fill-rule': headGlyph.fillRule,
+      transform: 'translate(' + (x - headGlyph.x) + ' ' + (y - headGlyph.y) + ')',
+      fill: atTargetPitch ? 'none' : 'currentColor',
+      stroke: atTargetPitch ? 'currentColor' : 'none', 'stroke-width': 1.25, 'stroke-linejoin': 'round',
+    }));
     const targetOnLine = referenceNotes.some((q) => q.clef === clef && q.step === step && q.acc);
     if (acc || targetOnLine) {
       const a = wrongNode('text', { x: x - (targetOnLine ? 27 : 17), y: y + 4.5, fill: 'currentColor', 'font-size': 17, 'text-anchor': 'middle' });
@@ -1248,12 +1256,21 @@ const render = (colorQ) => {
   const layer = wrongNode('g', { class: 'wrong-note-overlay', 'aria-hidden': 'true', 'pointer-events': 'none' });
   layer.style.color = 'var(--ng)';
   svg.append(layer);
+  let headGlyph = null;
   const anchors = targetNotes.map((note) => {
     const head = note.getSVGElement()?.querySelector('.vf-notehead');
     const box = head?.getBBox();
-    return box && box.width > 0 ? box.x + box.width / 2 : note.getAbsoluteX() + 7;
+    if (box?.width > 0 && !headGlyph) {
+      const path = head.matches('path[d]') ? head : head.querySelector('path[d]');
+      const pathBox = path?.getBBox();
+      if (pathBox?.width > 0) headGlyph = {
+        d: path.getAttribute('d'), fillRule: path.getAttribute('fill-rule') || 'nonzero',
+        x: pathBox.x + pathBox.width / 2, y: pathBox.y + pathBox.height / 2,
+      };
+    }
+    return box?.width > 0 ? box.x + box.width / 2 : note.getAbsoluteX() + 7;
   });
-  wrongLayout = { layer, staves, anchors, H };
+  wrongLayout = { layer, staves, anchors, headGlyph, H };
   drawWrong();
 };
 
