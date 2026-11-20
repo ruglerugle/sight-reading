@@ -17,6 +17,7 @@
 # 実行中は `claude-running` ラベルが付く（手元の定期チェックは、これが付いたものに手を出さない）。
 #
 # 必要な設定（オーナー）
+#   - Secret CODEX_TRIGGER_TOKEN（オーナーの fine-grained トークン。PR へのコメントだけに使う。なければ Codex への依頼を飛ばす）
 #   - Claude の GitHub アプリ（https://github.com/apps/claude）をこのリポジトリに入れる
 #   - Secret CLAUDE_CODE_OAUTH_TOKEN（`claude setup-token` で作る）
 name: Claude agent loop
@@ -122,6 +123,9 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
       NUMBER: ${{ needs.gate.outputs.number }}
+      IS_PR: ${{ needs.gate.outputs.is_pr }}
+      # Claude が「Codex にレビューしてほしい PR 番号」を書くファイル
+      CODEX_REVIEW_FILE: /tmp/claude-codex-review.txt
     steps:
       - uses: actions/checkout@v4
         with:
@@ -133,7 +137,9 @@ jobs:
         run: gh api "repos/$REPO/issues/$NUMBER/labels" -f 'labels[]=claude-running' >/dev/null
       - name: PR のブランチに切り替える
         if: needs.gate.outputs.is_pr == 'true'
-        run: gh pr checkout "$NUMBER"
+        run: |
+          gh pr checkout "$NUMBER"
+          echo "BEFORE_SHA=$(gh pr view "$NUMBER" --json headRefOid -q .headRefOid)" >> "$GITHUB_ENV"
       - name: git の設定（claude/ 以外のブランチへの push を止める）
         run: |
           git config user.name "claude[bot]"
@@ -177,6 +183,28 @@ jobs:
           claude_args: >-
             --max-turns 120
             --allowedTools "Read,Edit,Write,Glob,Grep,TodoWrite,Bash(git:*),Bash(gh:*),Bash(npm:*),Bash(npx:*),Bash(node:*),Bash(cargo:*),Bash(rustc:*),Bash(php:*),Bash(composer:*),Bash(python3:*),Bash(pytest:*),Bash(ls:*),Bash(cat:*),Bash(head:*),Bash(tail:*),Bash(grep:*),Bash(sed:*),Bash(wc:*),Bash(diff:*),Bash(sha256sum:*),Bash(mkdir:*)"
+      # クラウドの Codex はボットのコメントには反応しないので、オーナー名義のトークンで頼む。
+      # 頼む PR：Claude がファイルに書いた番号と、この実行で先頭のコミットが変わった対象の PR。
+      - name: Codex にレビューを頼む
+        if: always()
+        env:
+          CODEX_TOKEN: ${{ secrets.CODEX_TRIGGER_TOKEN }}
+        run: |
+          prs=""
+          if [ -f "$CODEX_REVIEW_FILE" ]; then prs=$(grep -oE '[0-9]+' "$CODEX_REVIEW_FILE" || true); fi
+          if [ "$IS_PR" = "true" ]; then
+            now=$(gh pr view "$NUMBER" --json headRefOid -q .headRefOid)
+            if [ "$now" != "${BEFORE_SHA:-}" ]; then prs="$prs $NUMBER"; fi
+          fi
+          prs=$(for x in $prs; do echo "$x"; done | grep -E '^[0-9]+$' | sort -un | paste -sd' ' - || true)
+          if [ -z "$prs" ]; then echo "Codex に頼む PR はありません"; exit 0; fi
+          if [ -z "$CODEX_TOKEN" ]; then echo "::warning::Secret CODEX_TRIGGER_TOKEN がないため、Codex にレビューを頼めませんでした（PR: $prs）"; exit 0; fi
+          for p in $prs; do
+            st=$(gh pr view "$p" --json state -q .state 2>/dev/null || echo NONE)
+            if [ "$st" != "OPEN" ]; then echo "#$p は開いていないので飛ばします"; continue; fi
+            GH_TOKEN="$CODEX_TOKEN" gh pr comment "$p" --body "@codex review"
+            echo "#$p に Codex のレビューを頼みました"
+          done
       - name: 実行中の印を外す
         if: always()
         run: gh api -X DELETE "repos/$REPO/issues/$NUMBER/labels/claude-running" >/dev/null 2>&1 || true
