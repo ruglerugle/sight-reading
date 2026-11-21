@@ -1,6 +1,6 @@
 'use strict';
 // このファイルは piano-billing の npm run build-free で作る。直接書き換えない（完全版の楽譜は piano-billing/src/songs-full.ts）
-// 無料で公開する範囲：mary-lamb・twinkle・ode-to-joy・jazz-blues-c・burgmuller-candeur・burgmuller-arabesque・burgmuller-pastorale は全部、ほかの曲は最初のフレーズだけ（locked: true。続きは有料版で /api/songs から受け取る）
+// 無料で公開する範囲：mary-lamb・twinkle・ode-to-joy・jazz-blues-c・burgmuller-candeur・burgmuller-arabesque・burgmuller-pastorale・beyer-op101-no61 は全部、ほかの曲は最初のフレーズだけ（locked: true。続きは有料版で /api/songs から受け取る）
 const SONGS = [
   {
     "id": "mary-lamb",
@@ -742,6 +742,70 @@ const SONGS = [
       [
         26,
         29
+      ]
+    ]
+  },
+  {
+    "id": "beyer-op101-no61",
+    "genre": "beyer",
+    "title": "バイエル 第61番",
+    "composer": "フェルディナント・バイエル",
+    "credit": "バイエル ピアノ教則本 Op.101 第61番。Edition Peters（ルータルト校訂、版番号8033）p.44のパブリックドメイン譜より。音高・音価は原譜どおり。指番号・スラー・dolce／legatoは未表示。",
+    "key": "C",
+    "time": "4/4",
+    "tempo": 104,
+    "rh": [
+      "b5/q. c6/8 d6/h",
+      "g5/q. a5/8 b5/h",
+      "c6/q. b5/8 a5/h",
+      "b5/q. a5/8 g5/h",
+      "b5/q. c6/8 d6/q. b5/8",
+      "g5/q. a5/8 b5/q. g5/8",
+      "c6/q. b5/8 a5/q. b5/8",
+      "g5/w",
+      "a5/q. b5/8 c6/q. a5/8",
+      "b5/q. g5/8 d6/q. b5/8",
+      "a5/q. b5/8 c6/q. a5/8",
+      "b5/q. g5/8 d6/h",
+      "b5/q. c6/8 d6/q. b5/8",
+      "g5/q. a5/8 b5/q. g5/8",
+      "c6/q. b5/8 a5/q. b5/8",
+      "g5/h g6/q r/q"
+    ],
+    "lh": [
+      "g3/q d4/q b3/q d4/q",
+      "g3/q d4/q b3/q d4/q",
+      "g3/q d4/q c4/q d4/q",
+      "g3/q d4/q b3/q d4/q",
+      "g3/q d4/q b3/q d4/q",
+      "g3/q d4/q b3/q d4/q",
+      "g3/q d4/q c4/q d4/q",
+      "g3/q d4/q b3/q d4/q",
+      "g3/q d4/q c4/q d4/q",
+      "g3/q d4/q b3/q d4/q",
+      "g3/q d4/q c4/q d4/q",
+      "g3/q d4/q b3/q d4/q",
+      "g3/q d4/q b3/q d4/q",
+      "g3/q d4/q b3/q d4/q",
+      "g3/q d4/q c4/q d4/q",
+      "b3/q d4/q g3/q r/q"
+    ],
+    "phrases": [
+      [
+        0,
+        4
+      ],
+      [
+        4,
+        8
+      ],
+      [
+        8,
+        12
+      ],
+      [
+        12,
+        16
       ]
     ]
   },
