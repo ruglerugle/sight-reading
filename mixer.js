@@ -48,7 +48,7 @@ const Mixer = (() => {
   let ctx = null;
   const audio = () => {
     ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
-    if (ctx.state === 'suspended') ctx.resume();
+    if (ctx.state !== 'running' && ctx.state !== 'closed') ctx.resume().catch(() => {});
     return ctx;
   };
   const cache = new Map(); // url → Promise<AudioBuffer>

@@ -55,7 +55,7 @@ const reducedMotion = () => window.matchMedia && window.matchMedia('(prefers-red
 const fanfare = (stars) => {
   try {
     const { ctx } = getAudio();
-    if (ctx.state === 'suspended') ctx.resume();
+    wakeAudio(ctx);
     const t = ctx.currentTime + 0.05;
     const seq = stars >= 3 ? [72, 76, 79, 84, 88] : stars === 2 ? [67, 72, 76, 79] : [64, 67, 72];
     seq.forEach((m, i) => beep(m, t + i * 0.1));

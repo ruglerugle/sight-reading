@@ -903,17 +903,17 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
 </dialog>
 
 <script src="songs.js?v=12"></script>
-<script src="game.js?v=11"></script>
+<script src="game.js?v=12"></script>
 <script src="timing.js?v=2"></script>
 <script src="assess.js?v=1"></script>
 <script src="flow.js?v=2"></script>
-<script src="song-mode.js?v=20"></script>
+<script src="song-mode.js?v=21"></script>
 <script src="record-sync.js?v=1"></script>
 <script src="billing.js?v=11"></script>
 <script src="ui.js?v=9"></script>
 <script src="studio.js?v=1"></script>
-<script src="mixer.js?v=2"></script>
-<script src="demo.js?v=2"></script>
+<script src="mixer.js?v=3"></script>
+<script src="demo.js?v=3"></script>
 <script src="piano.js?v=1"></script>
 <script>
 'use strict';
@@ -1430,7 +1430,15 @@ const clearHints = () => document.querySelectorAll('.key.hint').forEach((k) => k
 
 // ---- 音（画面の鍵盤・PCキー用）----
 let audio = null; // { ctx, out, wave, piano, pianoOut }
+// 音を出せる状態にする。iPhone などでは、ブラウザを閉じて戻ると AudioContext が
+// 'suspended' だけでなく 'interrupted' のまま止まることがある。'running' 以外なら再開する
+const wakeAudio = (ctx) => {
+  if (!ctx || ctx.state === 'running' || ctx.state === 'closed') return;
+  ctx.resume().catch(() => {});
+};
 const getAudio = () => {
+  // 閉じられた AudioContext は使えないので作り直す
+  if (audio && audio.ctx.state === 'closed') audio = null;
   if (audio) return audio;
   // iPhone のマナーモードでも鳴らす（Safari 16.4+）
   if (navigator.audioSession) navigator.audioSession.type = 'playback';
@@ -1452,25 +1460,45 @@ const getAudio = () => {
   return audio;
 };
 
-// Safari は pointerdown だけでは音声を有効にしないことがあるので、最初の操作で解放しておく
+// Safari は pointerdown だけでは音声を有効にしないことがあるので、操作のたびに音を出せる状態か確かめる。
+// 最初の1回だけにすると、ブラウザを閉じて戻ったあと（音が止められた状態）に二度と再開できない。
+// 一度再開を試しても止まったままなら、次の操作のときに AudioContext を作り直す（操作の中でないと作り直せない）
+// 1回のタップで touchstart・touchend・mousedown が続けて届くので、同じタップの中では作り直さない
+let wakeTried = null; // 再開を試して、まだ動いていない AudioContext
+let wakeAt = 0;       // そのときの時刻（ミリ秒）
 const unlockAudio = () => {
   try {
-    const { ctx } = getAudio();
-    if (ctx.state === 'suspended') ctx.resume();
+    let { ctx } = getAudio();
+    if (ctx.state === 'running') { wakeTried = null; return; }
+    if (wakeTried === ctx && Date.now() - wakeAt < 1000) { ctx.resume().catch(() => {}); return; }
+    if (wakeTried === ctx) {
+      ctx.close().catch(() => {});
+      audio = null;
+      wakeTried = null;
+      ({ ctx } = getAudio());
+    } else {
+      wakeTried = ctx;
+    }
+    wakeAt = Date.now();
+    ctx.resume().then(() => { if (wakeTried === ctx && ctx.state === 'running') wakeTried = null; }).catch(() => {});
   } catch (e) {
     console.warn('音声を有効にできませんでした', e);
   }
 };
 ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach((type) =>
-  document.addEventListener(type, unlockAudio, { once: true, capture: true })
+  document.addEventListener(type, unlockAudio, { capture: true })
 );
+// 画面に戻ってきたときにも、できれば再開しておく（操作がないと再開できない端末では、次の操作で再開する）
+const wakeOnReturn = () => { if (!document.hidden && audio) wakeAudio(audio.ctx); };
+document.addEventListener('visibilitychange', wakeOnReturn);
+window.addEventListener('pageshow', wakeOnReturn);
 
 // at: 鳴らす時刻（AudioContext の時計）。省略したら今すぐ。止めるときのために gain を返す
 // dest: つなぐ先（お手本は止められるように、お手本だけの GainNode を通す）
 const beep = (midi, at = 0, dest = null) => {
   try {
     const { ctx, out, wave } = getAudio();
-    if (ctx.state === 'suspended') ctx.resume();
+    wakeAudio(ctx);
     const t = Math.max(ctx.currentTime, at);
     const freq = 440 * 2 ** ((midi - 69) / 12);
     const len = Math.min(2.5, Math.max(0.8, 2.5 - (midi - 48) / 30)); // 低い音ほど長く響く
@@ -1500,7 +1528,7 @@ const beep = (midi, at = 0, dest = null) => {
 const playPiano = (midi, at = 0, dest = null, options = {}) => {
   try {
     const { ctx, pianoOut, piano } = getAudio();
-    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    wakeAudio(ctx);
     return piano ? piano.play(midi, at, dest || pianoOut, options) : beep(midi, at, dest);
   } catch (e) { console.warn('ピアノを鳴らせませんでした', e); return beep(midi, at, dest); }
 };
