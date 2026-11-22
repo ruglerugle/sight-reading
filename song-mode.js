@@ -158,16 +158,15 @@ const songRecord = (id) => {
 const isStepDone = (song, i) => songRecord(song.id).done.includes(i);
 // どの曲も、クリアの順番に関係なく、最初からどの段階も選べる（オーナーの判断 2026-11-23。両手から始めるため）
 const isStepUnlocked = () => true;
-// 曲を開いたときの段階：両手（簡易でない・自分のペース）のうち、まだクリアしていない最初の段階。
+// 曲を開いたときの段階：範囲ごとの両手（自分のペース）のうち、まだクリアしていない最初の段階。
 // すべてクリア済みなら最初の両手。初見チャレンジ（もともと両手）は、まだクリアしていない最初の段階
 const firstOpenStep = (song) => {
   const steps = songSteps(song);
   if (!song.generated) {
-    // 範囲（フレーズ・つなげる・通し）ごとに、いちばん難しい両手の段階（両手。同じ音で省かれていれば両手（簡易））を選ぶ
+    // 範囲（フレーズ・つなげる・通し）ごとに、その範囲の最後（いちばん難しい）の段階を選ぶ。ふつうは「両手」。
+    // 同じ音で省かれた曲では、両手と同じ音の段階（「両手（簡易）」、右手が休みだけなら「左手」）になる
     const byRange = new Map();
-    steps.forEach((st, k) => {
-      if (st.kind === 'pace' && (st.hands === 'both' || st.hands === 'bothS')) byRange.set(String(st.range), k);
-    });
+    steps.forEach((st, k) => { if (st.kind === 'pace') byRange.set(String(st.range), k); });
     const both = [...byRange.values()].sort((x, y) => x - y);
     if (both.length) return both.find((k) => !isStepDone(song, k)) ?? both[0];
   }

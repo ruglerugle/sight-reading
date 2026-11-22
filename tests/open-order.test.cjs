@@ -47,3 +47,9 @@ test('when the full both-hands step was dropped as identical, the simplified one
   const c = make(steps, new Set());
   assert.equal(c.firstOpenStep({ id: 'x' }), 2);
 });
+
+test('when the right hand only rests, "both" equals "left hand" and the left-hand step is used', () => {
+  const steps = [pace('lhs', p1), pace('lh', p1)];
+  const c = make(steps, new Set());
+  assert.equal(c.firstOpenStep({ id: 'gymnopedie' }), 1);
+});
