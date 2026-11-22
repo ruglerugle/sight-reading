@@ -156,7 +156,9 @@ const songRecord = (id) => {
   return progress.songs[id];
 };
 const isStepDone = (song, i) => songRecord(song.id).done.includes(i);
-const isStepUnlocked = (song, i) => i === 0 || isStepDone(song, i - 1) || isStepDone(song, i);
+// クリアの順番で開けずに、最初からどの段階も選べる曲（動画から来た人が、すぐ両手で弾けるように。オーナーの判断 2026-11-23）
+const OPEN_ORDER_SONGS = new Set(['hidamari-michi']);
+const isStepUnlocked = (song, i) => i === 0 || OPEN_ORDER_SONGS.has(song.id) || isStepDone(song, i - 1) || isStepDone(song, i);
 const firstOpenStep = (song) => {
   const steps = songSteps(song);
   const i = steps.findIndex((_, k) => !isStepDone(song, k));
