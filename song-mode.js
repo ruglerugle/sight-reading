@@ -8,7 +8,6 @@ const BEATS_TO_DUR = [[4, 'w', 0], [3, 'h', 1], [2, 'h', 0], [1.5, 'q', 1], [1, 
 // 調号でついている変化記号（音名番号 → ♯1 / ♭-1）
 const KEY_ACC = { C: {}, Am: {}, G: { 3: 1 }, D: { 3: 1, 0: 1 }, F: { 6: -1 } };
 const TEMPO_WINDOW = 150; // テンポの判定：このミリ秒以内のずれならちょうど
-const SONG_W = 360;       // 曲の譜面の幅（viewBox）
 
 // [欄の名前, 見出し, 説明]。オリジナル曲（original: true。元の曲の音源つき）はジャンルに関係なく別の欄にまとめる
 const SONG_GENRES = [['sight', '初見チャレンジ（毎日かわる・自動作曲）'], ['classic', 'クラシック・民謡'], ['etude', '王道の練習曲（ブルグミュラー）'], ['jazz', 'ジャズ（オリジナル練習曲）'], ['original', 'オリジナル曲', '元の曲の音源に合わせて練習']];
@@ -240,31 +239,87 @@ const noteColor = (n) => {
   return idx === r.pos && r.state === 'play' ? css('--accent') : null;
 };
 
+// 曲の楽譜は、大譜表の1段を横に長く描いて、いま弾く位置が画面の左から3分の1に来るよう左へ流す。
+// 音部記号・調号・拍子は、左端に固定した別の絵に描く。流す絵は、いまの小節の前後だけを描き直す
+const FLOW_MEASURE_PAD = 34; // 小節の頭と終わりの余白（viewBox の単位）
+const FLOW_BEAT_W = 38;      // 1拍の幅
+const FLOW_BEHIND = 2;       // いまの小節より前に描く小節の数
+const FLOW_AHEAD = 9;        // いまの小節より先に描く小節の数
+const FLOW_BOTH_H = 224;     // 大譜表の高さ（viewBox の単位）
+const FLOW_ONE_H = 116;      // 片手の譜表の高さ
+
+const flowLayout = (c) => {
+  const abs = [];
+  let x = 0;
+  c.lens.forEach((len, i) => { abs[i] = x; x += FLOW_MEASURE_PAD + len * FLOW_BEAT_W; });
+  abs[c.lens.length] = x;
+  return abs; // 小節 i の左端 = abs[i]、右端 = abs[i + 1]
+};
+
 const renderSong = () => {
   const el = $('staff');
   el.innerHTML = '';
+  el.classList.toggle('flow', !!songRun);
   if (!songRun) return;
-  const { c, step } = songRun;
+  const r = songRun;
+  const { c, step } = r;
   const song = c.song;
-  const [pa, pb] = song.phrases[phraseOf(song, songRun.viewMeasure)];
-  const a = Math.max(pa, step.range[0]);
-  const b = Math.min(pb, step.range[1]);
   const shown = HAND_SETS[step.hands];
   const upper = shown.includes('rh') ? 'rh' : null;
   const lower = shown.find((h) => h !== 'rh') || null;
   const both = upper && lower;
-  // 譜表の位置：上に加線3本ぶん、2段のあいだに加線の余白
-  const SYS_H = both ? 240 : 115;
-  const systems = [];
-  for (let m = a; m < b; m += 2) systems.push([...Array(Math.min(2, b - m)).keys()].map((k) => m + k));
-  const H = systems.length * SYS_H;
-  const renderer = new VF.Renderer(el, VF.Renderer.Backends.SVG);
-  renderer.resize(SONG_W, H);
-  const ctx = renderer.getContext();
+  const H = both ? FLOW_BOTH_H : FLOW_ONE_H;
+  const lowerY = both ? 100 : 0;
+  const abs = flowLayout(c);
+  const ws = Math.max(step.range[0], r.viewMeasure - FLOW_BEHIND);
+  const we = Math.min(step.range[1], r.viewMeasure + FLOW_AHEAD + 1);
   const keyAcc = KEY_ACC[song.key] || {};
-  const cursorMap = []; // 段ごと { y0, y1, pts: [[拍, x], ...] }
 
-  const ticksFor = (hand, measure, clef, sn) => {
+  const newSvg = (w) => {
+    const host = document.createElement('div');
+    const renderer = new VF.Renderer(host, VF.Renderer.Backends.SVG);
+    renderer.resize(w, H);
+    return { host, ctx: renderer.getContext() };
+  };
+  const finish = (host, x0, w) => {
+    const svg = host.querySelector('svg');
+    svg.setAttribute('viewBox', `${x0} 0 ${w} ${H}`);
+    svg.removeAttribute('width');
+    svg.removeAttribute('height');
+    svg.style.display = 'block';
+    svg.style.height = '100%';
+    svg.style.width = '100%';
+    svg.setAttribute('preserveAspectRatio', 'xMinYMid meet');
+    return svg;
+  };
+
+  // 左端に固定する部分：音部記号・調号・拍子と、大譜表のかっこ
+  const decorate = (stave, clef) => {
+    stave.addClef(clef).addKeySignature(song.key).addTimeSignature(song.time);
+    return stave;
+  };
+  const probe = decorate(new VF.Stave(0, 0, 200), upper ? 'treble' : 'bass');
+  const fixedW = Math.ceil(probe.getNoteStartX() - probe.getX()) + 8;
+  const fx = newSvg(fixedW + 4);
+  const fs = [];
+  if (upper) fs.push(decorate(new VF.Stave(4, 0, fixedW), 'treble'));
+  if (lower) fs.push(decorate(new VF.Stave(4, lowerY, fixedW), 'bass'));
+  fs.forEach((s) => { s.setEndBarType(VF.Barline.type.NONE); s.setContext(fx.ctx).draw(); });
+  if (both) {
+    new VF.StaveConnector(fs[0], fs[1]).setType('brace').setContext(fx.ctx).draw();
+    new VF.StaveConnector(fs[0], fs[1]).setType('singleLeft').setContext(fx.ctx).draw();
+  }
+  const fixedSvg = finish(fx.host, 0, fixedW + 4);
+
+  // 流す部分
+  const x0 = abs[ws];
+  const trackW = abs[we] - x0;
+  const tr = newSvg(trackW);
+  const ctx = tr.ctx;
+  const sn = new Map(); // 音符データ → 描いた音符（タイ用）
+  const pts = [];       // [拍, x]（曲の頭からの位置）
+
+  const ticksFor = (hand, measure, clef) => {
     const notes = c[hand].filter((n) => n.measure === measure);
     const state = new Map(); // 小節の中でついた臨時記号
     return notes.map((n) => {
@@ -291,108 +346,108 @@ const renderSong = () => {
     });
   };
 
-  systems.forEach((ms, si) => {
-    const y = si * SYS_H;
-    const firstOfPage = si === 0;
-    const decorate = (stave, clef, isFirst) => {
-      if (!isFirst) return stave;
-      stave.addClef(clef).addKeySignature(song.key);
-      if (firstOfPage) stave.addTimeSignature(song.time);
-      return stave;
-    };
-    // 1小節目は音部記号などのぶん広くする
-    const probe = decorate(new VF.Stave(0, 0, 200), upper ? 'treble' : 'bass', true);
-    const extra = probe.getNoteStartX() - probe.getX();
-    const inner = (SONG_W - 12 - extra) / ms.length;
-    let x = 4;
-    const sn = new Map(); // 音符データ → 描いた音符（タイ用）
-    const pts = [];
-    ms.forEach((measure, k) => {
-      const w = inner + (k === 0 ? extra : 0);
-      const staves = [];
-      if (upper) staves.push({ hand: upper, clef: 'treble', stave: decorate(new VF.Stave(x, y, w), 'treble', k === 0) });
-      if (lower) staves.push({ hand: lower, clef: 'bass', stave: decorate(new VF.Stave(x, y + (both ? 110 : 0), w), 'bass', k === 0) });
-      // 上下の段で音符の書き始めをそろえる
-      const sx = Math.max(...staves.map((s) => s.stave.getNoteStartX()));
-      staves.forEach((s) => { s.stave.setNoteStartX(sx); s.stave.setContext(ctx).draw(); });
-      if (both && k === 0) {
-        new VF.StaveConnector(staves[0].stave, staves[1].stave).setType('brace').setContext(ctx).draw();
-        new VF.StaveConnector(staves[0].stave, staves[1].stave).setType('singleLeft').setContext(ctx).draw();
-      }
-      if (both) new VF.StaveConnector(staves[0].stave, staves[1].stave).setType('singleRight').setContext(ctx).draw();
-      const voices = staves.map((s) => {
-        const ticks = ticksFor(s.hand, measure, s.clef, sn);
-        const voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
-        voice.addTickables(ticks);
-        const beams = VF.Beam.generateBeams(ticks, { groups: VF.Beam.getDefaultBeamGroups(song.time) });
-        return { ...s, voice, beams };
-      });
-      const fmt = new VF.Formatter();
-      voices.forEach(({ voice }) => fmt.joinVoices([voice]));
-      fmt.format(voices.map((v) => v.voice), Math.max(40, voices[0].stave.getNoteEndX() - sx - 12));
-      voices.forEach(({ voice, stave, beams }) => {
-        voice.draw(ctx, stave);
-        beams.forEach((bm) => bm.setContext(ctx).draw());
-      });
-      // 小節の頭・音符・小節の終わりの位置
-      pts.push([c.starts[measure], sx - 6]);
-      staves.forEach((s) => c[s.hand].forEach((n) => {
-        if (n.measure === measure && sn.has(n)) pts.push([n.t, sn.get(n).getAbsoluteX() + 6]);
-      }));
-      pts.push([c.starts[measure] + c.lens[measure], x + w - 4]);
-      x += w;
+  for (let measure = ws; measure < we; measure++) {
+    // 描く場所は、曲の頭からの位置から流す部分の左端を引いたもの
+    const x = abs[measure] - x0;
+    const w = abs[measure + 1] - abs[measure];
+    const staves = [];
+    if (upper) staves.push({ hand: upper, clef: 'treble', stave: new VF.Stave(x, 0, w) });
+    if (lower) staves.push({ hand: lower, clef: 'bass', stave: new VF.Stave(x, lowerY, w) });
+    // 上下の段で音符の書き始めをそろえる
+    const sx = Math.max(...staves.map((s) => s.stave.getNoteStartX())) + 6;
+    staves.forEach((s) => { s.stave.setNoteStartX(sx); s.stave.setContext(ctx).draw(); });
+    if (both) new VF.StaveConnector(staves[0].stave, staves[1].stave).setType('singleRight').setContext(ctx).draw();
+    if (both && measure === ws) new VF.StaveConnector(staves[0].stave, staves[1].stave).setType('singleLeft').setContext(ctx).draw();
+    const voices = staves.map((s) => {
+      const ticks = ticksFor(s.hand, measure, s.clef);
+      const voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setMode(VF.Voice.Mode.SOFT);
+      voice.addTickables(ticks);
+      const beams = VF.Beam.generateBeams(ticks, { groups: VF.Beam.getDefaultBeamGroups(song.time) });
+      return { ...s, voice, beams };
     });
-    pts.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
-    cursorMap.push({ y0: y + 22, y1: y + (both ? 110 : 0) + 98, pts });
-    // タイ（段をまたぐときは、段の端までと段の頭からに分けて描く）
-    [upper, lower].filter(Boolean).forEach((hand) => {
-      const ns = c[hand];
-      ns.forEach((n, i) => {
-        const next = ns[i + 1];
-        if (!n.tie || !next || !next.cont || (!sn.has(n) && !sn.has(next))) return;
-        const idx = n.keys.map((_, j) => j);
-        new VF.StaveTie({ first_note: sn.get(n) || null, last_note: sn.get(next) || null, first_indices: idx, last_indices: idx }).setContext(ctx).draw();
-      });
+    const fmt = new VF.Formatter();
+    voices.forEach(({ voice }) => fmt.joinVoices([voice]));
+    fmt.format(voices.map((v) => v.voice), Math.max(40, voices[0].stave.getNoteEndX() - sx - 12));
+    voices.forEach(({ voice, stave, beams }) => {
+      voice.draw(ctx, stave);
+      beams.forEach((bm) => bm.setContext(ctx).draw());
+    });
+    // 小節の頭・音符・小節の終わりの位置（曲の頭からの x）
+    pts.push([c.starts[measure], abs[measure] + (sx - x) - 6]);
+    staves.forEach((s) => c[s.hand].forEach((n) => {
+      if (n.measure === measure && sn.has(n)) pts.push([n.t, sn.get(n).getAbsoluteX() + x0 + 6]);
+    }));
+    pts.push([c.starts[measure] + c.lens[measure], abs[measure + 1] - 4]);
+  }
+  pts.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+  // タイ（流す部分の外にはみ出す側は描かない）
+  [upper, lower].filter(Boolean).forEach((hand) => {
+    const ns = c[hand];
+    ns.forEach((n, i) => {
+      const next = ns[i + 1];
+      if (!n.tie || !next || !next.cont || (!sn.has(n) && !sn.has(next))) return;
+      const idx = n.keys.map((_, j) => j);
+      new VF.StaveTie({ first_note: sn.get(n) || null, last_note: sn.get(next) || null, first_indices: idx, last_indices: idx }).setContext(ctx).draw();
     });
   });
+  const trackSvg = finish(tr.host, x0, trackW);
 
-  const svg = el.querySelector('svg');
-  svg.setAttribute('viewBox', `0 0 ${SONG_W} ${H}`);
-  svg.removeAttribute('width');
-  svg.removeAttribute('height');
-  svg.style.width = '100%';
-  svg.style.height = 'auto';
-  songRun.cursorMap = cursorMap;
+  const fixed = document.createElement('div');
+  fixed.className = 'flow-fixed';
+  fixed.appendChild(fixedSvg);
+  const view = document.createElement('div');
+  view.className = 'flow-view';
+  const track = document.createElement('div');
+  track.className = 'flow-track';
+  track.appendChild(trackSvg);
   const cur = document.createElement('div');
   cur.id = 'songCursor';
   cur.className = 'song-cursor';
   cur.hidden = true;
-  el.appendChild(cur);
+  view.append(track, cur);
+  el.append(fixed, view);
+
+  r.flow = {
+    H, fixedW: fixedW + 4, x0, trackW, pts, track, view, cur, fixed, lowerY, both,
+    trackStart: abs[step.range[0]], trackEnd: abs[step.range[1]],
+    prev: r.flow ? r.flow.offset : null, offset: null,
+  };
+  const ev = r.events[r.pos];
+  const pace = !r.tempo && r.state === 'play' && ev;
+  placeCursor(pace ? ev.t : r.focusBeat ?? (r.events[0] ? r.events[0].t : 0), !!pace);
 };
 
-// テンポ練習：いまの拍の位置に縦線を出す（拍は書かれた楽譜の拍。スウィングのずれは気にしない）
-const placeCursor = (beat) => {
-  const el = document.getElementById('songCursor');
+// いま弾く位置（拍）に、縦線と楽譜の流れを合わせる。showLine: 縦線を出すか
+const placeCursor = (beat, showLine = true) => {
   const r = songRun;
-  if (!el || !r || !r.cursorMap) return;
-  const sys = r.cursorMap.find((s) => s.pts.length && beat >= s.pts[0][0] - 1e-6 && beat <= s.pts[s.pts.length - 1][0] + 1e-6);
-  if (!sys) {
-    el.hidden = true;
-    return;
+  const f = r && r.flow;
+  if (!f || !f.cur.isConnected) return;
+  r.focusBeat = beat;
+  const k = (f.view.clientHeight || 1) / f.H;
+  const viewW = f.view.clientWidth / k;
+  const xv = Flow.xAtBeat(f.pts, beat);
+  const off = Flow.flowOffset(xv, viewW, f.trackStart, f.trackEnd);
+  const prev = f.prev;
+  f.prev = null;
+  f.offset = off;
+  f.fixed.style.width = `${f.fixedW * k}px`;
+  f.track.firstChild.style.width = `${f.trackW * k}px`;
+  const set = (o) => { f.track.style.transform = `translateX(${(f.x0 - o) * k}px)`; };
+  // 待つ練習では、音を弾くたびに前の位置から新しい位置へなめらかに動く。
+  // テンポで進むときは毎フレーム動かすので、動きはつけない
+  if (prev !== null && prev !== off && r.waitMode) {
+    f.track.style.transition = 'none';
+    set(prev);
+    f.track.getBoundingClientRect();
+    f.track.style.transition = 'transform .28s ease-out';
+  } else {
+    f.track.style.transition = 'none';
   }
-  const { pts } = sys;
-  let i = pts.findIndex((p) => p[0] > beat);
-  if (i < 0) i = pts.length - 1;
-  if (i === 0) i = 1;
-  const [t0, x0] = pts[i - 1];
-  const [t1, x1] = pts[i];
-  const xv = t1 > t0 ? x0 + ((beat - t0) / (t1 - t0)) * (x1 - x0) : x1;
-  const svg = $('staff').querySelector('svg');
-  const k = svg ? svg.clientWidth / SONG_W : 1;
-  el.hidden = false;
-  el.style.left = `${xv * k}px`;
-  el.style.top = `${sys.y0 * k}px`;
-  el.style.height = `${(sys.y1 - sys.y0) * k}px`;
+  set(off);
+  f.cur.hidden = !showLine;
+  f.cur.style.left = `${(xv - off) * k}px`;
+  f.cur.style.top = `${22 * k}px`;
+  f.cur.style.height = `${((f.both ? f.lowerY + 98 : 98) - 22) * k}px`;
 };
 
 // ---- 画面の表示 ----
@@ -733,7 +788,7 @@ const tempoTick = () => {
   // 1拍先を見て、次のフレーズに切り替える
   const beat = (now - T.perf0) / ms;
   r.viewMeasure = Math.min(Math.max(measureAt(r.c, beat + 1), r.step.range[0]), r.step.range[1] - 1);
-  const sig = `${phraseOf(r.song, r.viewMeasure)}|${r.pos}|${T.hits}|${T.misses}|${T.wrong}`;
+  const sig = `${r.viewMeasure}|${r.pos}|${T.hits}|${T.misses}|${T.wrong}`;
   if (sig !== T.sig) {
     T.sig = sig;
     renderSong();
