@@ -455,6 +455,10 @@ const placeCursor = (beat, showLine = true) => {
   f.cur.hidden = !showLine;
   f.cur.style.left = `${(xv - off) * k}px`;
   f.cur.style.top = `${top + 22 * k}px`;
+  // 鍵盤も、いま弾く音（お手本の再生中は、いま鳴っている音）が見える位置に合わせる。
+  // iPhone では曲の開始時に合わせても、あとで鍵盤の位置が戻ってしまうことがあるため、毎回確かめる（見えていれば動かさない）
+  const evAt = r.demoBeat != null ? r.events.find((e) => e.t >= beat - 0.01) : r.events[r.pos];
+  if (evAt && typeof showKey === 'function') showKey(evAt.keys[evAt.keys.length - 1].midi);
   f.cur.style.height = `${((f.both ? f.lowerY + 98 : 98) - 22) * k}px`;
 };
 

@@ -307,9 +307,11 @@ body[data-view="play"] .tabs, body[data-view="play"] .topbar, body[data-view="pl
 #staff svg { display: block; width: 100%; height: auto; }
 /* 曲の楽譜：大譜表の1段を横に流す。音部記号・調号は左端に固定 */
 #staff.flow { display: flex; max-width: none; min-height: 0; overflow: hidden; }
-.flow-fixed { flex: none; height: 100%; }
+/* 左に固定した部分は流れる楽譜より手前に置き、紙の色で塗る（流れる音符が拍子記号に重ならない） */
+.flow-fixed { flex: none; height: 100%; position: relative; z-index: 1; background: #fffefb; }
 .flow-fixed svg { height: 100%; }
-.flow-view { position: relative; flex: 1; min-width: 0; height: 100%; overflow: hidden; }
+/* iPhone の Safari では、動かしている（transform）中身が overflow: hidden で切り取られないことがあるので、clip-path でも切る */
+.flow-view { position: relative; flex: 1; min-width: 0; height: 100%; overflow: hidden; clip-path: inset(0); isolation: isolate; }
 .flow-track { position: absolute; left: 0; top: 0; height: 100%; will-change: transform; }
 .flow-track svg { display: block; height: 100%; }
 #staff.flow svg { width: auto; }
@@ -907,7 +909,7 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
 <script src="timing.js?v=2"></script>
 <script src="assess.js?v=1"></script>
 <script src="flow.js?v=3"></script>
-<script src="song-mode.js?v=22"></script>
+<script src="song-mode.js?v=23"></script>
 <script src="record-sync.js?v=1"></script>
 <script src="billing.js?v=11"></script>
 <script src="ui.js?v=9"></script>
