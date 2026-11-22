@@ -303,10 +303,65 @@ body[data-view="play"] .tabs, body[data-view="play"] .topbar, body[data-view="pl
 .sheet { width: 100%; background: #fffefb; border-radius: 22px; padding: 14px 12px; box-shadow: 0 18px 40px rgba(0, 0, 0, .35); display: grid; justify-items: center; }
 .sheet[hidden] { display: none; }
 #staff { width: 100%; max-width: 600px; min-height: 140px; position: relative; }
-/* 曲の楽譜は縦に長いので、鍵盤まで1画面に入る大きさにする */
-.sheet.song #staff { max-width: min(600px, 62vh); }
 #staff[hidden], .sheet:has(#staff[hidden]) { display: none; }
 #staff svg { display: block; width: 100%; height: auto; }
+/* 曲の楽譜：大譜表の1段を横に流す。音部記号・調号は左端に固定 */
+#staff.flow { display: flex; max-width: none; min-height: 0; overflow: hidden; }
+.flow-fixed { flex: none; height: 100%; }
+.flow-fixed svg { height: 100%; }
+.flow-view { position: relative; flex: 1; min-width: 0; height: 100%; overflow: hidden; }
+.flow-track { position: absolute; left: 0; top: 0; height: 100%; will-change: transform; }
+.flow-track svg { display: block; height: 100%; }
+#staff.flow svg { width: auto; }
+
+/* 練習の画面は、スクロールしなくても楽譜と鍵盤が一画面に入るようにする（画面の高さに収める） */
+:root { --kb-h: 128px; }
+body[data-view="play"] { overflow: hidden; }
+body[data-view="play"] #playView { height: 100vh; height: 100dvh; }
+.play { height: 100%; box-sizing: border-box; display: flex; flex-direction: column; padding: 8px 14px max(8px, env(safe-area-inset-bottom)); position: relative; }
+.playbar { padding: 2px 0 8px; flex: none; }
+.play .stage { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.play .stage > * { flex: none; }
+.play .stage > .sheet { flex: 1 1 0; min-height: 90px; }
+.play .sheet { padding: 8px 10px; align-items: center; }
+.play #staff { height: 100%; min-height: 0; }
+.play #staff:not(.flow) { display: flex; justify-content: center; align-items: center; }
+.play #staff:not(.flow) svg { width: auto; height: 100%; max-width: 100%; }
+.play .kb-box { padding: 8px 8px 6px; }
+.play .kb { height: var(--kb-h); }
+.play .key.white { height: var(--kb-h); }
+.play .key.black { height: calc(var(--kb-h) * .62); }
+.play .name-hint, .play .feedback, .play .lap-line { min-height: 0; }
+.play .name-hint:empty, .play .feedback:empty, .play .lap-line:empty { display: none; }
+.play .result { overflow: auto; max-height: 100%; }
+.more-btn { flex: none; }
+.play-more {
+  position: absolute; left: 14px; right: 14px; top: 56px; z-index: 20; max-height: calc(100% - 70px); overflow: auto;
+  background: var(--play-panel); border-radius: 16px; padding: 14px; box-shadow: 0 18px 40px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .12) inset;
+}
+.play-more[hidden] { display: none; }
+.play-more .song-mixer { margin-top: 10px; }
+.play-more .song-credit { margin-bottom: 8px; }
+/* 背の低い画面（スマホの横向きなど）：鍵盤を低くして、上の帯と曲の選択を1行にまとめる */
+@media (max-height: 560px) {
+  :root { --kb-h: 84px; }
+  .play { padding: 4px 10px max(4px, env(safe-area-inset-bottom)); }
+  .play .stage { gap: 3px; }
+  .playbar { padding: 0 0 3px; gap: 8px; }
+  .play-score b { font-size: 1rem; }
+  .play .kb-box { padding: 5px 6px 4px; border-radius: 12px; }
+  .kb-nav { height: 14px; margin-top: 4px; }
+  .stage-info { font-size: .74rem; line-height: 1.25; }
+  .stage-info br { display: none; }
+  .song-panel { gap: 5px; }
+  .song-panel select, .song-panel button { padding-top: 4px; padding-bottom: 4px; min-height: 0; font-size: .8rem; }
+  .play .sheet { padding: 4px 8px; border-radius: 12px; }
+  .feedback { font-size: .9rem; }
+  .play-more { top: 40px; }
+}
+@media (max-height: 420px) {
+  :root { --kb-h: 70px; }
+}
 .song-cursor { position: absolute; width: 3px; margin-left: -1.5px; border-radius: 2px; background: rgba(91, 75, 219, .7); box-shadow: 0 0 10px rgba(91, 75, 219, .6); pointer-events: none; }
 .song-cursor[hidden] { display: none; }
 .name-hint { min-height: 1.5em; color: var(--gold); font-weight: 700; text-align: center; }
@@ -547,6 +602,12 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
       <button type="button" class="icon" id="playClose" aria-label="ホームへ戻る">✕</button>
       <div class="ttl"><b id="playTitle"></b><div class="prog" role="progressbar" aria-label="進み具合"><i id="playProg"></i></div></div>
       <div class="play-score" aria-live="off"><b id="playScore">0</b><small id="playSub">点</small></div>
+      <button type="button" class="icon more-btn" id="moreBtn" aria-label="曲の情報・音量・操作のヒント" aria-expanded="false" aria-controls="playMore">ⓘ</button>
+    </div>
+    <div id="playMore" class="play-more" hidden>
+      <div id="songCredit" class="song-credit"></div>
+      <div id="songMixerBox" class="song-mixer" hidden><h3>元の曲（パート別の音量）</h3><div id="songMixer"></div></div>
+      <div class="kb-note"><span id="midiHelp"></span> <span class="pc-only">PCのキー A W S E D F T G Y H U J K（ド〜ド）、Z / X でオクターブ移動。いま弾ける音は <b id="pcOctLabel">C4〜C5</b>。</span></div>
     </div>
     <section class="stage" aria-label="出題">
       <div id="stageHidden" hidden><div id="starTotal"></div><div id="stageBar" role="group" aria-label="ステージ"></div></div>
@@ -557,7 +618,6 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
         <button id="demoBtn" class="ghost" type="button">♪ お手本</button>
         <button id="retryBtn" class="ghost" type="button">↺ はじめから</button>
         <button id="unlockBtn" class="gold" type="button" data-paywall="song" hidden>🔒 続きを練習する</button>
-        <div id="songCredit" class="song-credit"></div>
       </div>
       <div id="practiceBar" class="song-practice" hidden></div>
       <div id="assessBanner" hidden></div>
@@ -581,8 +641,6 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
       <div class="controls">
         <button id="skipBtn" class="ghost" type="button">答えを見て次へ</button>
       </div>
-      <div id="songMixerBox" class="song-mixer" hidden><h3>元の曲（パート別の音量）</h3><div id="songMixer"></div></div>
-      <div class="kb-note"><span id="midiHelp"></span> <span class="pc-only">PCのキー A W S E D F T G Y H U J K（ド〜ド）、Z / X でオクターブ移動。いま弾ける音は <b id="pcOctLabel">C4〜C5</b>。</span></div>
     </section>
   </div>
 </section>
@@ -848,10 +906,11 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
 <script src="game.js?v=11"></script>
 <script src="timing.js?v=2"></script>
 <script src="assess.js?v=1"></script>
-<script src="song-mode.js?v=18"></script>
+<script src="flow.js?v=2"></script>
+<script src="song-mode.js?v=20"></script>
 <script src="record-sync.js?v=1"></script>
 <script src="billing.js?v=11"></script>
-<script src="ui.js?v=8"></script>
+<script src="ui.js?v=9"></script>
 <script src="studio.js?v=1"></script>
 <script src="mixer.js?v=2"></script>
 <script src="demo.js?v=2"></script>

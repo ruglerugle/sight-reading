@@ -316,7 +316,15 @@ const initUI = () => {
   });
   $('settingsBtn').addEventListener('click', () => $('settingsDlg').showModal());
   $('helpBtn').addEventListener('click', () => $('helpDlg').showModal());
-  $('playClose').addEventListener('click', () => showView('home'));
+  $('playClose').addEventListener('click', () => { $('playMore').hidden = true; $('moreBtn').setAttribute('aria-expanded', 'false'); showView('home'); });
+  // 曲の情報・ミキサー・操作のヒントは、ⓘ を押したときだけ出す（練習の画面を一画面に収めるため）
+  $('moreBtn').addEventListener('click', () => {
+    const el = $('playMore');
+    el.hidden = !el.hidden;
+    $('moreBtn').setAttribute('aria-expanded', String(!el.hidden));
+  });
+  // 画面の大きさや向きが変わったら、楽譜を流す位置を合わせ直す
+  window.addEventListener('resize', () => { if (songRun && songRun.flow) placeCursor(songRun.focusBeat ?? 0, !songRun.flow.cur.hidden); });
   $('payBuy').addEventListener('click', () => {
     $('payDlg').close();
     buyPlan();
