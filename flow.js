@@ -33,7 +33,19 @@
   };
   // 流す部分の幅（viewBox の単位）。左に固定した部分の幅を引いた残り
   const flowViewW = (staffW, k, fixedW) => Math.max(1, staffW / k - fixedW);
-  const api = { FOCUS, MIN_VIEW, MAX_SCALE, xAtBeat, flowOffset, flowScale, flowViewW };
+  // 同じ拍に複数の位置があるとき（前の小節の終わり・小節線・次の小節の最初の音）は、いちばん右だけを残す。
+  // 残さないと、小節をまたぐ瞬間に位置が小節の頭の余白ぶん飛び、流れる楽譜がカクッと動く。
+  // 1つにすると、前の小節の最後の音から次の小節の最初の音まで、同じ速さで動く
+  const smoothPts = (pts) => {
+    const out = [];
+    for (const p of [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1])) {
+      const last = out[out.length - 1];
+      if (last && Math.abs(last[0] - p[0]) < 1e-9) last[1] = Math.max(last[1], p[1]);
+      else out.push([p[0], p[1]]);
+    }
+    return out;
+  };
+  const api = { FOCUS, MIN_VIEW, MAX_SCALE, xAtBeat, flowOffset, flowScale, flowViewW, smoothPts };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Flow = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -379,7 +379,7 @@ const renderSong = () => {
     }));
     pts.push([c.starts[measure] + c.lens[measure], abs[measure + 1] - 4]);
   }
-  pts.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+  const smooth = Flow.smoothPts(pts);
   // タイ（流す部分の外にはみ出す側は描かない）
   [upper, lower].filter(Boolean).forEach((hand) => {
     const ns = c[hand];
@@ -410,13 +410,15 @@ const renderSong = () => {
   el.append(fixed, view);
 
   r.flow = {
-    H, fixedW: fixedW + 4, x0, trackW, pts, track, view, cur, fixed, lowerY, both,
+    H, fixedW: fixedW + 4, x0, trackW, pts: smooth, ws, we, track, view, cur, fixed, lowerY, both,
     trackStart: abs[step.range[0]], trackEnd: abs[step.range[1]],
     prev: r.flow ? r.flow.offset : null, offset: null,
   };
   const ev = r.events[r.pos];
   const pace = !r.tempo && r.state === 'play' && ev;
-  placeCursor(pace ? ev.t : r.focusBeat ?? (r.events[0] ? r.events[0].t : 0), !!pace);
+  // お手本の再生中は、お手本の位置のまま描き直す（練習の位置へ一瞬戻らない）
+  if (r.demoBeat != null) placeCursor(r.demoBeat);
+  else placeCursor(pace ? ev.t : r.focusBeat ?? (r.events[0] ? r.events[0].t : 0), !!pace);
 };
 
 // いま弾く位置（拍）に、縦線と楽譜の流れを合わせる。showLine: 縦線を出すか
@@ -441,7 +443,7 @@ const placeCursor = (beat, showLine = true) => {
   const set = (o) => { f.track.style.transform = `translateX(${(f.x0 - o) * k}px)`; };
   // 待つ練習では、音を弾くたびに前の位置から新しい位置へなめらかに動く。
   // テンポで進むときは毎フレーム動かすので、動きはつけない
-  if (prev !== null && prev !== off && r.waitMode) {
+  if (prev !== null && prev !== off && r.waitMode && r.demoBeat == null) {
     f.track.style.transition = 'none';
     set(prev);
     f.track.getBoundingClientRect();
@@ -453,6 +455,10 @@ const placeCursor = (beat, showLine = true) => {
   f.cur.hidden = !showLine;
   f.cur.style.left = `${(xv - off) * k}px`;
   f.cur.style.top = `${top + 22 * k}px`;
+  // 鍵盤も、いま弾く音（お手本の再生中は、いま鳴っている音）が見える位置に合わせる。
+  // iPhone では曲の開始時に合わせても、あとで鍵盤の位置が戻ってしまうことがあるため、毎回確かめる（見えていれば動かさない）
+  const evAt = r.demoBeat != null ? r.events.find((e) => e.t >= beat - 0.01) : r.events[r.pos];
+  if (evAt && typeof showKey === 'function') showKey(evAt.keys[evAt.keys.length - 1].midi);
   f.cur.style.height = `${((f.both ? f.lowerY + 98 : 98) - 22) * k}px`;
 };
 
@@ -948,6 +954,7 @@ const followDemo = (h, origin, spb) => {
     if (songRun !== r) return;
     if (Demo.current !== h) {
       // 練習の位置へ戻す
+      r.demoBeat = null;
       const ev = r.events[r.pos];
       if (ev) r.viewMeasure = ev.notes[0].measure;
       r.focusBeat = ev ? ev.t : r.focusBeat;
@@ -955,8 +962,12 @@ const followDemo = (h, origin, spb) => {
       return;
     }
     const beat = origin + h.position() / spb;
+    r.demoBeat = beat;
     const vm = Math.min(Math.max(measureAt(r.c, beat + 1), range[0]), range[1] - 1);
-    if (vm !== r.viewMeasure || !r.flow || !r.flow.cur.isConnected) {
+    // 描き直しは重いので、描いてある範囲の終わりが近づいたとき（またはその外へ出たとき）だけにする
+    const f = r.flow;
+    const stale = !f || !f.cur.isConnected || vm < f.ws || (vm + 4 >= f.we && f.we < range[1]);
+    if (stale) {
       r.viewMeasure = vm;
       renderSong();
     }

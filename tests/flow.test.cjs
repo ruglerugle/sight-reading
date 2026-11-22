@@ -63,3 +63,16 @@ test('while playing to the last note, the next note is always inside the visible
     }
   }
 });
+
+const { smoothPts } = require('../flow.js');
+test('crossing a bar line does not jump: one position per beat, the rightmost', () => {
+  // 小節の終わり（x=180）・次の小節の頭（x=200）・最初の音（x=215）が同じ拍 4 にある
+  const raw = [[0, 20], [0, 35], [2, 110], [4, 180], [4, 200], [4, 215], [6, 290]];
+  const p = smoothPts(raw);
+  assert.deepEqual(p.map((q) => q[0]), [0, 2, 4, 6]);
+  assert.equal(xAtBeat(p, 4), 215);
+  // 拍 2 から 4 のあいだは同じ速さで進み、拍 4 の前後で位置が飛ばない
+  const step = (b) => xAtBeat(p, b + 0.01) - xAtBeat(p, b);
+  assert.ok(Math.abs(step(3.98) - step(3)) < 1e-6);
+  assert.ok(Math.abs(xAtBeat(p, 4.0001) - xAtBeat(p, 3.9999)) < 0.05);
+});

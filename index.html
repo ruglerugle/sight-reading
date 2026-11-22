@@ -307,9 +307,11 @@ body[data-view="play"] .tabs, body[data-view="play"] .topbar, body[data-view="pl
 #staff svg { display: block; width: 100%; height: auto; }
 /* 曲の楽譜：大譜表の1段を横に流す。音部記号・調号は左端に固定 */
 #staff.flow { display: flex; max-width: none; min-height: 0; overflow: hidden; }
-.flow-fixed { flex: none; height: 100%; }
+/* 左に固定した部分は流れる楽譜より手前に置き、紙の色で塗る（流れる音符が拍子記号に重ならない） */
+.flow-fixed { flex: none; height: 100%; position: relative; z-index: 1; background: #fffefb; }
 .flow-fixed svg { height: 100%; }
-.flow-view { position: relative; flex: 1; min-width: 0; height: 100%; overflow: hidden; }
+/* iPhone の Safari では、動かしている（transform）中身が overflow: hidden で切り取られないことがあるので、clip-path でも切る */
+.flow-view { position: relative; flex: 1; min-width: 0; height: 100%; overflow: hidden; clip-path: inset(0); isolation: isolate; }
 .flow-track { position: absolute; left: 0; top: 0; height: 100%; will-change: transform; }
 .flow-track svg { display: block; height: 100%; }
 #staff.flow svg { width: auto; }
@@ -906,8 +908,8 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
 <script src="game.js?v=12"></script>
 <script src="timing.js?v=2"></script>
 <script src="assess.js?v=1"></script>
-<script src="flow.js?v=2"></script>
-<script src="song-mode.js?v=21"></script>
+<script src="flow.js?v=3"></script>
+<script src="song-mode.js?v=23"></script>
 <script src="record-sync.js?v=1"></script>
 <script src="billing.js?v=11"></script>
 <script src="ui.js?v=9"></script>
@@ -1466,16 +1468,43 @@ const getAudio = () => {
 // 1回のタップで touchstart・touchend・mousedown が続けて届くので、同じタップの中では作り直さない
 let wakeTried = null; // 再開を試して、まだ動いていない AudioContext
 let wakeAt = 0;       // そのときの時刻（ミリ秒）
+// iPhone では、ブラウザを閉じて戻ると、AudioContext が 'running' と言いながら時計（currentTime）が
+// 止まったままになり、音も出ずお手本も進まないことがある。操作のたびに時計を記録し、前の記録から
+// 0.5秒以上たっているのに時計が半分も進んでいなければ「止まっている」とみなして作り直す
+let clockMark = null; // { ctx, t: その時の currentTime, at: その時の performance.now() }
+const markClock = (ctx) => { clockMark = { ctx, t: ctx.currentTime, at: performance.now() }; };
+const audioStalled = (ctx) => {
+  const m = clockMark;
+  const now = performance.now();
+  markClock(ctx);
+  if (!m || m.ctx !== ctx) return false;
+  const wall = (now - m.at) / 1000;
+  return wall >= 0.5 && ctx.currentTime - m.t < wall * 0.5;
+};
+// AudioContext を作り直す（操作の中で呼ぶ）。鳴っているお手本は止める（古い AudioContext の音のため）
+const resetAudio = () => {
+  const old = audio;
+  if (typeof Demo !== 'undefined') Demo.stop();
+  audio = null;
+  wakeTried = null;
+  clockMark = null;
+  if (old) old.ctx.close().catch(() => {});
+  const { ctx } = getAudio();
+  ctx.resume().catch(() => {});
+  markClock(ctx);
+  return ctx;
+};
 const unlockAudio = () => {
   try {
     let { ctx } = getAudio();
-    if (ctx.state === 'running') { wakeTried = null; return; }
+    if (ctx.state === 'running') {
+      wakeTried = null;
+      if (audioStalled(ctx)) resetAudio();
+      return;
+    }
     if (wakeTried === ctx && Date.now() - wakeAt < 1000) { ctx.resume().catch(() => {}); return; }
     if (wakeTried === ctx) {
-      ctx.close().catch(() => {});
-      audio = null;
-      wakeTried = null;
-      ({ ctx } = getAudio());
+      ctx = resetAudio();
     } else {
       wakeTried = ctx;
     }
@@ -1489,9 +1518,15 @@ const unlockAudio = () => {
   document.addEventListener(type, unlockAudio, { capture: true })
 );
 // 画面に戻ってきたときにも、できれば再開しておく（操作がないと再開できない端末では、次の操作で再開する）
-const wakeOnReturn = () => { if (!document.hidden && audio) wakeAudio(audio.ctx); };
+// 画面が隠れるときは時計を記録しておき、戻って最初の操作で、時計が止まっていないか確かめる
+const wakeOnReturn = () => {
+  if (!audio) return;
+  if (document.hidden) markClock(audio.ctx);
+  else wakeAudio(audio.ctx);
+};
 document.addEventListener('visibilitychange', wakeOnReturn);
 window.addEventListener('pageshow', wakeOnReturn);
+window.addEventListener('pagehide', () => { if (audio) markClock(audio.ctx); });
 
 // at: 鳴らす時刻（AudioContext の時計）。省略したら今すぐ。止めるときのために gain を返す
 // dest: つなぐ先（お手本は止められるように、お手本だけの GainNode を通す）
