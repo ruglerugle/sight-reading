@@ -17,3 +17,15 @@ test('other songs still open in order', () => {
   assert.equal(ctx.isStepUnlocked({ id: 'merry' }, 0), true);
   assert.equal(ctx.isStepUnlocked({ id: 'merry' }, 2), false);
 });
+
+test('hidamari-michi starts at the both-hands step; other songs start at the first unfinished step', () => {
+  const fo = src.slice(src.indexOf('const firstOpenStep = '), src.indexOf('const songKbMidis'));
+  const steps = ['rh', 'lhs', 'bothS', 'lh', 'both'].map((hands) => ({ hands }));
+  const done = new Set();
+  const c2 = vm.createContext({ songSteps: () => steps, isStepDone: (_s, k) => done.has(k) });
+  vm.runInContext(code + fo + 'this.firstOpenStep = firstOpenStep;', c2);
+  assert.equal(c2.firstOpenStep({ id: 'hidamari-michi' }), 4);
+  assert.equal(c2.firstOpenStep({ id: 'merry' }), 0);
+  done.add(4);
+  assert.equal(c2.firstOpenStep({ id: 'hidamari-michi' }), 4, 'falls back to the first both-hands step');
+});

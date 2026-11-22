@@ -161,6 +161,11 @@ const OPEN_ORDER_SONGS = new Set(['hidamari-michi']);
 const isStepUnlocked = (song, i) => i === 0 || OPEN_ORDER_SONGS.has(song.id) || isStepDone(song, i - 1) || isStepDone(song, i);
 const firstOpenStep = (song) => {
   const steps = songSteps(song);
+  // 順番に関係なく選べる曲は、両手（簡易でない）から始める。まだクリアしていない両手の段階があればそこ、なければ最初の両手
+  if (OPEN_ORDER_SONGS.has(song.id)) {
+    const both = steps.map((st, k) => (st.hands === 'both' ? k : -1)).filter((k) => k >= 0);
+    if (both.length) return both.find((k) => !isStepDone(song, k)) ?? both[0];
+  }
   const i = steps.findIndex((_, k) => !isStepDone(song, k));
   return i < 0 ? 0 : i;
 };
