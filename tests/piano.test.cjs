@@ -59,7 +59,7 @@ test('missing or failed recorder module leaves interactive audio and the legacy 
     createOscillator:()=>Object.assign(c.node(),{setPeriodicWave(){}})});
   let options;
   const sandbox=vm.createContext({
-   ...moduleState,kbRange:[48,84], navigator:{}, document:{addEventListener(){}},
+   ...moduleState,kbRange:[48,84], navigator:{}, document:{addEventListener(){}}, window:{addEventListener(){}}, followDemo(){},
    AudioContext:function(){return c.ctx;},console:{warn(){}},songRun:{events:[{t:0,keys:[{midi:60}]}],song:{tempo:100},step:{kind:'other'}},
    stopSongAudio(){},pauseSongMixer(){},playBeat:(_s,t)=>t,Demo:{play(_btn,o){options=o;}},$:()=>({}),
   });

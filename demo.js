@@ -98,7 +98,7 @@ const Demo = (() => {
     };
     const end = () => { cut(); h.done(); onEnd?.(); };
     const begin = () => {
-      if (ctx.state === 'suspended') ctx.resume().catch((e) => console.warn('音を出せません', e));
+      if (ctx.state !== 'running' && ctx.state !== 'closed') ctx.resume().catch((e) => console.warn('音を出せません', e));
       bus = ctx.createGain();
       bus.connect(out);
       t0 = ctx.currentTime + 0.06;
@@ -111,9 +111,11 @@ const Demo = (() => {
       resume: begin,
       stop: () => { cut(); onEnd?.(); },
     });
+    // いま鳴っている位置（秒）。一時停止中は止めた位置。画面をお手本に合わせて動かすのに使う（省略可の機能）
+    h.position = () => (bus ? Math.min(len, from + Math.max(0, ctx.currentTime - t0)) : from);
     begin();
     return h;
   };
 
-  return { play, bind, stop, get active() { return !!cur; } };
+  return { play, bind, stop, get active() { return !!cur; }, get current() { return cur; } };
 })();

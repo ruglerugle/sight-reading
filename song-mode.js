@@ -749,7 +749,7 @@ const startTempo = () => {
   pauseSongMixer();
   const { c, song } = r;
   const { ctx } = getAudio();
-  if (ctx.state === 'suspended') ctx.resume();
+  wakeAudio(ctx);
   const bpm = (song.tempo * r.step.pct * practiceOf().speed) / 10000;
   const spb = 60 / bpm;
   pmeter.setRange(TEMPO_WINDOW, TEMPO_PERFECT);
@@ -889,12 +889,12 @@ const playSongDemo = () => {
   if (!piano) {
     if (!r.events.length) return;
     const at = (e) => (playBeat(r.song, e.t) - r.events[0].t) * spb;
-    Demo.play($('demoBtn'), {
+    followDemo(Demo.play($('demoBtn'), {
       ctx, out, len: at(r.events[r.events.length - 1]) + 1.5,
       schedule: (bus, start, from) => r.events.forEach((e) => {
         if (at(e) >= from - 0.005) e.keys.forEach((k) => beep(k.midi, start + at(e) - from, bus));
       }),
-    });
+    }), r.events[0].t, spb);
     return;
   }
   const range = r.loopRange || r.step.range;
@@ -907,7 +907,7 @@ const playSongDemo = () => {
   if (!notes.length) return;
   piano.preload(notes.map((n) => n.midi));
   const len = Math.max(...notes.map((n) => n.time + n.duration + WarmPiano.releaseOf(n.midi))) + .5;
-  Demo.play($('demoBtn'), {
+  followDemo(Demo.play($('demoBtn'), {
     ctx, out: pianoOut, len,
     schedule: (bus, start, from) => {
       // Bound source count and allow stop/pause to cancel future work immediately.
@@ -935,7 +935,35 @@ const playSongDemo = () => {
         setTimeout(() => piano.stopRoute(bus), 85);
       };
     },
-  });
+  }), fromBeat, spb);
+};
+
+// お手本の再生に合わせて、楽譜を流し、縦線を動かす。origin: お手本の 0 秒にあたる拍、spb: 1拍の秒数。
+// お手本が止まった・終わったら、練習で次に弾く音の位置へ戻す
+const followDemo = (h, origin, spb) => {
+  const r = songRun;
+  if (!h || typeof h.position !== 'function' || !r || !r.flow) return;
+  const range = r.loopRange || r.step.range;
+  const tick = () => {
+    if (songRun !== r) return;
+    if (Demo.current !== h) {
+      // 練習の位置へ戻す
+      const ev = r.events[r.pos];
+      if (ev) r.viewMeasure = ev.notes[0].measure;
+      r.focusBeat = ev ? ev.t : r.focusBeat;
+      renderSong();
+      return;
+    }
+    const beat = origin + h.position() / spb;
+    const vm = Math.min(Math.max(measureAt(r.c, beat + 1), range[0]), range[1] - 1);
+    if (vm !== r.viewMeasure || !r.flow || !r.flow.cur.isConnected) {
+      r.viewMeasure = vm;
+      renderSong();
+    }
+    placeCursor(beat);
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 };
 
 // ---- 曲モードに入る・出る ----
