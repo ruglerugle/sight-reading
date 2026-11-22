@@ -156,14 +156,19 @@ const songRecord = (id) => {
   return progress.songs[id];
 };
 const isStepDone = (song, i) => songRecord(song.id).done.includes(i);
-// クリアの順番で開けずに、最初からどの段階も選べる曲（動画から来た人が、すぐ両手で弾けるように。オーナーの判断 2026-11-23）
-const OPEN_ORDER_SONGS = new Set(['hidamari-michi']);
-const isStepUnlocked = (song, i) => i === 0 || OPEN_ORDER_SONGS.has(song.id) || isStepDone(song, i - 1) || isStepDone(song, i);
+// どの曲も、クリアの順番に関係なく、最初からどの段階も選べる（オーナーの判断 2026-11-23。両手から始めるため）
+const isStepUnlocked = () => true;
+// 曲を開いたときの段階：両手（簡易でない・自分のペース）のうち、まだクリアしていない最初の段階。
+// すべてクリア済みなら最初の両手。初見チャレンジ（もともと両手）は、まだクリアしていない最初の段階
 const firstOpenStep = (song) => {
   const steps = songSteps(song);
-  // 順番に関係なく選べる曲は、両手（簡易でない）から始める。まだクリアしていない両手の段階があればそこ、なければ最初の両手
-  if (OPEN_ORDER_SONGS.has(song.id)) {
-    const both = steps.map((st, k) => (st.hands === 'both' ? k : -1)).filter((k) => k >= 0);
+  if (!song.generated) {
+    // 範囲（フレーズ・つなげる・通し）ごとに、いちばん難しい両手の段階（両手。同じ音で省かれていれば両手（簡易））を選ぶ
+    const byRange = new Map();
+    steps.forEach((st, k) => {
+      if (st.kind === 'pace' && (st.hands === 'both' || st.hands === 'bothS')) byRange.set(String(st.range), k);
+    });
+    const both = [...byRange.values()].sort((x, y) => x - y);
     if (both.length) return both.find((k) => !isStepDone(song, k)) ?? both[0];
   }
   const i = steps.findIndex((_, k) => !isStepDone(song, k));
