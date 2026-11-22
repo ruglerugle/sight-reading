@@ -390,7 +390,9 @@ const renderSong = () => {
       new VF.StaveTie({ first_note: sn.get(n) || null, last_note: sn.get(next) || null, first_indices: idx, last_indices: idx }).setContext(ctx).draw();
     });
   });
-  const trackSvg = finish(tr.host, x0, trackW);
+  // 流す部分は、描いた位置（流す部分の左端が 0）のまま見せる。viewBox を x0 から始めると、
+  // 曲の途中で描き直したときに x0 だけ右にずれて、音符が枠の外へ消えてしまう
+  const trackSvg = finish(tr.host, 0, trackW);
 
   const fixed = document.createElement('div');
   fixed.className = 'flow-fixed';
@@ -423,8 +425,12 @@ const placeCursor = (beat, showLine = true) => {
   const f = r && r.flow;
   if (!f || !f.cur.isConnected) return;
   r.focusBeat = beat;
-  const k = (f.view.clientHeight || 1) / f.H;
-  const viewW = f.view.clientWidth / k;
+  // 拡大率と見える幅は、固定部分の幅を変える前の測り値に頼らず、楽譜の枠の大きさから計算で決める
+  const staffW = f.view.parentElement.clientWidth;
+  const viewH = f.view.clientHeight;
+  const k = Flow.flowScale(staffW, viewH, f.H, f.fixedW);
+  const viewW = Flow.flowViewW(staffW, k, f.fixedW);
+  const top = Math.max(0, (viewH - f.H * k) / 2); // 余った高さは上下に分ける
   const xv = Flow.xAtBeat(f.pts, beat);
   const off = Flow.flowOffset(xv, viewW, f.trackStart, f.trackEnd);
   const prev = f.prev;
@@ -446,7 +452,7 @@ const placeCursor = (beat, showLine = true) => {
   set(off);
   f.cur.hidden = !showLine;
   f.cur.style.left = `${(xv - off) * k}px`;
-  f.cur.style.top = `${22 * k}px`;
+  f.cur.style.top = `${top + 22 * k}px`;
   f.cur.style.height = `${((f.both ? f.lowerY + 98 : 98) - 22) * k}px`;
 };
 
@@ -617,7 +623,10 @@ const startSongStep = (idx) => {
   updateSongInfo();
   syncSongSelects();
   songHint();
-  showKey(events[0].keys[events[0].keys.length - 1].midi);
+  const firstMidi = events[0].keys[events[0].keys.length - 1].midi;
+  showKey(firstMidi);
+  // 練習の画面に切り替わった直後は鍵盤の幅が決まっていないことがあるので、配置が終わってからもう一度合わせる
+  requestAnimationFrame(() => requestAnimationFrame(() => showKey(firstMidi)));
 };
 
 // stars: 0〜3（0 は失敗）、lines: 結果の説明の行

@@ -21,7 +21,19 @@
     const max = Math.max(trackStart, trackEnd - viewW);
     return Math.min(Math.max(want, trackStart), max);
   };
-  const api = { FOCUS, xAtBeat, flowOffset };
+  // 楽譜の拡大率（viewBox の1単位 → 画面の px）。高さいっぱいに合わせると、縦長の画面や広い画面では
+  // 拡大しすぎて先の音符が見えなくなる。そこで、流す部分に少なくとも MIN_VIEW 単位（約1.5小節）が入り、
+  // かつ MAX_SCALE を超えない大きさに抑える。余った高さは上下の余白になる
+  const MIN_VIEW = 260;
+  const MAX_SCALE = 1.6;
+  const flowScale = (staffW, viewH, H, fixedW) => {
+    const byH = viewH > 0 ? viewH / H : MAX_SCALE;
+    const byW = staffW > 0 ? staffW / (fixedW + MIN_VIEW) : MAX_SCALE;
+    return Math.max(0.1, Math.min(byH, byW, MAX_SCALE));
+  };
+  // 流す部分の幅（viewBox の単位）。左に固定した部分の幅を引いた残り
+  const flowViewW = (staffW, k, fixedW) => Math.max(1, staffW / k - fixedW);
+  const api = { FOCUS, MIN_VIEW, MAX_SCALE, xAtBeat, flowOffset, flowScale, flowViewW };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Flow = api;
 })(typeof window !== 'undefined' ? window : globalThis);
