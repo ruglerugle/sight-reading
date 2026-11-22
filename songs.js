@@ -920,5 +920,43 @@ const SONGS = [
     ],
     "locked": true,
     "fullPhrases": 2
+  },
+  {
+    "id": "hidamari-michi",
+    "original": true,
+    "title": "ひだまりのかえりみち",
+    "composer": "はばたき塾オリジナル",
+    "credit": "約5分のオリジナル・ソロピアノ。ヘ長調のやさしい旋律が、導入→主題→展開→盛り上がり→主題の回想→静かな終わりへと進む。右手は旋律、左手は分散和音。最初の区切りは無料、続きは有料版で",
+    "key": "F",
+    "time": "4/4",
+    "tempo": 72,
+    "rh": [
+      "r/h a4/q c5/q",
+      "f5/h e5/q c5/q",
+      "d5/h. a4/q",
+      "f5/h e5/q d5/q",
+      "d5/h. c5/q",
+      "e5/h g5/q e5/q",
+      "c5/h. r/q",
+      "r/h g4/q c5/q"
+    ],
+    "lh": [
+      "f2/q c3/q a3/q c3/q",
+      "f2/q c3/q a3/q c3/q",
+      "d2/q a2/q f3/q a2/q",
+      "d2/q a2/q f3/q a2/q",
+      "bb2/q f3/q d4/q f3/q",
+      "c3/q g3/q e4/q g3/q",
+      "f2/q c3/q a3/q c3/q",
+      "c3/q g3/q e4/q g3/q"
+    ],
+    "phrases": [
+      [
+        0,
+        8
+      ]
+    ],
+    "locked": true,
+    "fullPhrases": 11
   }
 ];
