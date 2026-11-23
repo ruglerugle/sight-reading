@@ -1039,7 +1039,13 @@ const SONGS = [
           "from": 24,
           "to": 32
         }
-      ]
+      ],
+      "alt": {
+        "id": "original",
+        "label": "原曲（Suno）",
+        "bar1": 0.095,
+        "spb": 0.46519
+      }
     },
     "locked": true,
     "fullPhrases": 5
