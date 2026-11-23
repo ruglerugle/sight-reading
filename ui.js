@@ -324,6 +324,10 @@ const initUI = () => {
     el.hidden = !el.hidden;
     $('moreBtn').setAttribute('aria-expanded', String(!el.hidden));
   });
+  $('songListenBtn').addEventListener('click', () => {
+    if (!songMixer) return;
+    if (songMixer.mx.playing) songMixer.mx.pause(); else songMixer.mx.play();
+  });
   // 画面の大きさや向きが変わったら、楽譜を流す位置を合わせ直す
   window.addEventListener('resize', () => { if (songRun && songRun.flow) placeCursor(songRun.focusBeat ?? 0, !songRun.flow.cur.hidden); });
   $('payBuy').addEventListener('click', () => {

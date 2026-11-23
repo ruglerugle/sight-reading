@@ -196,6 +196,14 @@ const closeSongMixer = () => {
   if (songMixer) songMixer.mx.destroy();
   songMixer = null;
   $('songMixerBox').hidden = true;
+  $('songListenBtn').hidden = true;
+};
+// 練習の画面の ♪：元の曲（全曲）をすぐ聴く・止める。音源の切り替えや区間は ⓘ の中のプレーヤーで
+const showListenState = (playing) => {
+  const b = $('songListenBtn');
+  b.textContent = playing ? '❚❚' : '♪';
+  b.setAttribute('aria-label', playing ? '元の曲を止める' : '元の曲を聴く');
+  b.title = b.getAttribute('aria-label');
 };
 const syncSongMixer = (song) => {
   if (songMixer && songMixer.id === song.id) return;
@@ -203,7 +211,9 @@ const syncSongMixer = (song) => {
   if (!song.stems) return;
   $('songMixerBox').hidden = false;
   // ピアノのパートは元の曲にないので、「自分のパートを消す」は出さない（mine なし）
-  songMixer = { id: song.id, mx: Mixer.create($('songMixer'), { id: song.id, ...song.stems }) };
+  songMixer = { id: song.id, mx: Mixer.create($('songMixer'), { id: song.id, ...song.stems, onState: showListenState }) };
+  $('songListenBtn').hidden = false;
+  showListenState(false);
 };
 // 元の曲を止める（テンポの練習はクリックで弾くので、重ねない）
 const pauseSongMixer = () => { if (songMixer) songMixer.mx.pause(); };
