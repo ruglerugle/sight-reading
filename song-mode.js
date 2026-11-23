@@ -994,9 +994,9 @@ const enterSong = () => {
   $('songPanel').hidden = false;
   $('skipBtn').hidden = true;
   const song = currentSong();
-  const saved = progress.song && progress.song.id === song.id ? progress.song.step : null;
+  // 「練習を続ける」や練習のタブから入るときも、前回の段階（前は右手から始まっていた）ではなく、両手の段階から始める
   if (!progress.song) progress.song = { id: song.id, step: 0 };
-  startSongStep(saved !== null && isStepUnlocked(song, saved) ? saved : firstOpenStep(song));
+  startSongStep(firstOpenStep(song));
 };
 
 const exitSong = () => {
