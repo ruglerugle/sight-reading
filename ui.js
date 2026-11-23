@@ -111,7 +111,8 @@ const renderContinue = () => {
   if (progress.mode === 'song' && progress.song) {
     const song = currentSong();
     const steps = songSteps(song);
-    const step = steps[Math.min(progress.song.step || 0, steps.length - 1)];
+    // 「練習を続ける」で始まる段階（両手）を見せる
+    const step = steps[firstOpenStep(song)];
     const ss = songStars(song);
     el.innerHTML =
       `<span class="kicker">つづきから　♪ 曲</span><h2>${song.title}</h2>` +
