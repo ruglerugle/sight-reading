@@ -210,8 +210,8 @@ const syncSongMixer = (song) => {
   closeSongMixer();
   if (!song.stems) return;
   $('songMixerBox').hidden = false;
-  // ピアノのパートは元の曲にないので、「自分のパートを消す」は出さない（mine なし）
-  songMixer = { id: song.id, mx: Mixer.create($('songMixer'), { id: song.id, ...song.stems, onState: showListenState }) };
+  // 自分のパートは鍵盤（keys）。鍵盤のパートがない曲では「自分のパートを消す」は出ない
+  songMixer = { id: song.id, mx: Mixer.create($('songMixer'), { id: song.id, ...song.stems, mine: 'keys', onState: showListenState }) };
   $('songListenBtn').hidden = false;
   showListenState(false);
 };
