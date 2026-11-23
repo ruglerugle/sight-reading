@@ -958,5 +958,90 @@ const SONGS = [
     ],
     "locked": true,
     "fullPhrases": 11
+  },
+  {
+    "id": "cp-shuden-no-atode",
+    "genre": "band",
+    "original": true,
+    "title": "終電のあとで",
+    "composer": "羽ばたき塾オリジナル",
+    "credit": "シティポップ｜ニ短調のシティポップ（♩=128）。メジャーセブンス・テンションの効いたコードの上の、夜の街の歌。テンションコードの刻み（左手・右手）と、合いの手のフレーズ",
+    "key": "F",
+    "time": "4/4",
+    "tempo": 128,
+    "rh": [
+      "r/h r/8 (c4 e4)/8. r/8.",
+      "(c#4 f4)/8. r/16 r/8 (c#4 f4)/8 r/8 (c#4 f4)/8. r/8.",
+      "(c4 e4)/q~ (c4 e4)/16 r/8. (c4 e4)/8. r/16 r/q",
+      "(eb4 g4)/q~ (eb4 g4)/16 r/8. (eb4 g4 d5)/8. r/16 r/q"
+    ],
+    "lh": [
+      "r/h r/8 a3/8. r/8.",
+      "(g3 bb3)/8. r/16 r/8 g3/8 r/8 bb3/8. r/8.",
+      "(f3 a3)/q~ (f3 a3)/16 r/8. (f3 a3)/8. r/16 r/q",
+      "(g3 bb3)/q~ (g3 bb3)/16 r/8. a3/8. r/16 r/q"
+    ],
+    "phrases": [
+      [
+        0,
+        4
+      ]
+    ],
+    "stems": {
+      "base": "audio/songs/cp-shuden-no-atode/",
+      "tracks": [
+        {
+          "id": "vocal",
+          "label": "歌"
+        },
+        {
+          "id": "keys",
+          "label": "鍵盤"
+        },
+        {
+          "id": "guitar",
+          "label": "ギター"
+        },
+        {
+          "id": "bass",
+          "label": "ベース"
+        },
+        {
+          "id": "drums",
+          "label": "ドラム"
+        }
+      ],
+      "bar1": 0,
+      "spb": 0.46875,
+      "sections": [
+        {
+          "name": "イントロ",
+          "from": 0,
+          "to": 4
+        },
+        {
+          "name": "Aメロ",
+          "from": 4,
+          "to": 12
+        },
+        {
+          "name": "サビ",
+          "from": 12,
+          "to": 20
+        },
+        {
+          "name": "間奏",
+          "from": 20,
+          "to": 24
+        },
+        {
+          "name": "ラストのサビ",
+          "from": 24,
+          "to": 32
+        }
+      ]
+    },
+    "locked": true,
+    "fullPhrases": 5
   }
 ];
