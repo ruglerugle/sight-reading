@@ -232,7 +232,7 @@ const renderAccount = (me) => {
   const el = $('account');
   if (!me || !me.signedIn) {
     el.innerHTML = '<span class="pill off">ログインしていません</span>' +
-      '<span>いまはこの端末の記録だけを表示しています。練習画面の右上の ⚙（設定）にある「記録を同期する（無料）」から登録すると、スマホとパソコンの記録をまとめて見られます。</span>';
+      '<span>いまはこの端末の記録だけを表示しています。練習画面の右上の ⚙（設定）にある「無料で会員登録」から登録すると、スマホとパソコンの記録をまとめて見られます。</span>';
     return;
   }
   const plan = me.paid
