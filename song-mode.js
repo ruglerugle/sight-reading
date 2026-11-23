@@ -391,6 +391,7 @@ const renderSong = () => {
     pts.push([c.starts[measure] + c.lens[measure], abs[measure + 1] - 4]);
   }
   const smooth = Flow.smoothPts(pts);
+  const flowPts = Flow.barPts(c.starts, c.lens, abs, ws, we);
   // タイ（流す部分の外にはみ出す側は描かない）
   [upper, lower].filter(Boolean).forEach((hand) => {
     const ns = c[hand];
@@ -421,7 +422,7 @@ const renderSong = () => {
   el.append(fixed, view);
 
   r.flow = {
-    H, fixedW: fixedW + 4, x0, trackW, pts: smooth, ws, we, track, view, cur, fixed, lowerY, both,
+    H, fixedW: fixedW + 4, x0, trackW, pts: smooth, flowPts, ws, we, track, view, cur, fixed, lowerY, both,
     trackStart: abs[step.range[0]], trackEnd: abs[step.range[1]],
     prev: r.flow ? r.flow.offset : null, offset: null,
   };
@@ -444,8 +445,10 @@ const placeCursor = (beat, showLine = true) => {
   const k = Flow.flowScale(staffW, viewH, f.H, f.fixedW);
   const viewW = Flow.flowViewW(staffW, k, f.fixedW);
   const top = Math.max(0, (viewH - f.H * k) / 2); // 余った高さは上下に分ける
+  // 縦線は音符の位置（pts）に、楽譜の流れは小節単位で一定の速さ（flowPts）に合わせる。
+  // 縦線は見える範囲の中で少し前後するが、楽譜は小節線のところでも速くならない
   const xv = Flow.xAtBeat(f.pts, beat);
-  const off = Flow.flowOffset(xv, viewW, f.trackStart, f.trackEnd);
+  const off = Flow.flowOffset(Flow.xAtBeat(f.flowPts, beat), viewW, f.trackStart, f.trackEnd);
   const prev = f.prev;
   f.prev = null;
   f.offset = off;
