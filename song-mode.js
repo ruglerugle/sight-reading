@@ -752,6 +752,7 @@ const paceNoteOn = (midi) => {
     return;
   }
   if (r.pos >= r.events.length) {
+    trackSong('song_complete');
     renderSong();
     const stars = paceStars(r.misses, r.allowed);
     finishSongStep(stars, [
@@ -896,9 +897,19 @@ const tempoNoteOn = (midi) => {
   }
 };
 
+// 動画から来た人の件数：無料で試せる曲（locked）の、自分のペースで弾く段階だけ。同じ試行では1回ずつ
+const trackSong = (event) => {
+  const r = songRun;
+  if (!r || r.practice || r.step.kind !== 'pace' || !r.song.locked || r.song.generated) return;
+  r.sent = r.sent || {};
+  if (r.sent[event]) return;
+  r.sent[event] = true;
+  if (typeof Analytics !== 'undefined') Analytics.track(event);
+};
 const songNoteOn = (midi) => {
   const r = songRun;
   if (!r || r.state !== 'play') return;
+  trackSong('song_start');
   if (r.step.kind === 'tempo' && !r.waitMode) tempoNoteOn(midi);
   else paceNoteOn(midi);
 };

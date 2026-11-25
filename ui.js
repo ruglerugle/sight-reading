@@ -254,6 +254,7 @@ const openPaywall = (source) => {
     ['練習の記録を端末どうしで同期', 'スマホとパソコンで、どこからでも続きから'],
     ['ステージ・初見チャレンジはそのまま', '無料で使える練習は、これまでどおりすべて使えます'],
   ].map(([b, s]) => `<li><span><b>${b}</b><small>${s}</small></span></li>`).join('');
+  if (typeof Analytics !== 'undefined') Analytics.track('paywall_view');
   $('payDlg').showModal();
 };
 
