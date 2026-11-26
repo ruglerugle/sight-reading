@@ -897,14 +897,15 @@ const tempoNoteOn = (midi) => {
   }
 };
 
-// 動画から来た人の件数：無料で試せる曲（locked）の、自分のペースで弾く段階だけ。同じ試行では1回ずつ
+// 動画から来た人の件数：対象曲の冒頭8小節（最初の区切り）を弾いたときだけ（判定は analytics.js の isTargetIntro）。
+// 鍵盤を弾いたとき（開始）と最後の音まで着いたとき（完了）だけ呼ぶ。見本の再生からは呼ばない。1訪問に1回ずつ
 const trackSong = (event) => {
   const r = songRun;
-  if (!r || r.practice || r.step.kind !== 'pace' || !r.song.locked || r.song.generated) return;
+  if (!r) return;
   r.sent = r.sent || {};
   if (r.sent[event]) return;
   r.sent[event] = true;
-  if (typeof Analytics !== 'undefined') Analytics.track(event);
+  if (typeof Analytics !== 'undefined') Analytics.trackSong(event, r.song, r.step, r.practice);
 };
 const songNoteOn = (midi) => {
   const r = songRun;
