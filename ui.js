@@ -344,6 +344,16 @@ const initUI = () => {
   });
   $('obDlg').addEventListener('cancel', () => finishOnboarding(false));
   showView('home');
+  // 試作（?trial=1）：トップに「まず1つ練習してみる」を出し、案内ダイアログは出さない。既定は現行のまま
+  if (new URLSearchParams(location.search).get('trial') === '1') {
+    document.body.classList.add('trial');
+    document.querySelectorAll('.trial-only').forEach((el) => { el.hidden = false; });
+    $('trialStart').addEventListener('click', () => {
+      if (needsOnboarding()) { settings.clef = 'treble'; settings.ext = 1; onSettingsChanged(); }
+      startFromHome(1);
+    });
+    return;
+  }
   if (needsOnboarding()) {
     obShow(0);
     $('obDlg').showModal();
