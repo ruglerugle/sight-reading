@@ -45,7 +45,17 @@
     }
     return out;
   };
-  const api = { FOCUS, MIN_VIEW, MAX_SCALE, xAtBeat, flowOffset, flowScale, flowViewW, smoothPts };
+  // 楽譜を流すための点（小節の頭だけ）。音符の点（smoothPts）でつなぐと、前の小節の最後の音から次の小節の
+  // 最初の音までの区間に、小節線と小節の頭の余白の分の距離が入り、その区間だけ速く流れてしまう。
+  // 小節の頭 abs[m] を拍 starts[m] に対応させた点だけでつなぐと、余白も小節全体にならされ、小節の中は一定の速さになる。
+  // from〜to は描いた小節の範囲（to は含まない）。abs[to] がその範囲の右端
+  const barPts = (starts, lens, abs, from, to) => {
+    const out = [];
+    for (let m = from; m < to; m++) out.push([starts[m], abs[m]]);
+    if (to > from) out.push([starts[to - 1] + lens[to - 1], abs[to]]);
+    return out;
+  };
+  const api = { FOCUS, MIN_VIEW, MAX_SCALE, xAtBeat, flowOffset, flowScale, flowViewW, smoothPts, barPts };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Flow = api;
 })(typeof window !== 'undefined' ? window : globalThis);

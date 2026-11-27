@@ -76,3 +76,50 @@ test('crossing a bar line does not jump: one position per beat, the rightmost', 
   assert.ok(Math.abs(step(3.98) - step(3)) < 1e-6);
   assert.ok(Math.abs(xAtBeat(p, 4.0001) - xAtBeat(p, 3.9999)) < 0.05);
 });
+
+const { barPts } = require('../flow.js');
+test('the score flows at the same speed across a bar line as inside a bar (#23)', () => {
+  // flowLayout と同じ形：小節の幅 = 頭の余白 34 + 拍数 × 38。4/4 が 6 小節
+  const lens = [4, 4, 4, 4, 4, 4];
+  const starts = lens.map((_, i) => i * 4);
+  const abs = [];
+  let x = 100;
+  lens.forEach((len, i) => { abs[i] = x; x += 34 + len * 38; });
+  abs[lens.length] = x;
+  const p = barPts(starts, lens, abs, 1, 5);
+  assert.deepEqual(p, [[4, abs[1]], [8, abs[2]], [12, abs[3]], [16, abs[4]], [20, abs[5]]]);
+  const speed = (b) => (xAtBeat(p, b + 0.05) - xAtBeat(p, b)) / 0.05;
+  const inside = speed(5); // 小節の中
+  for (const b of [7.97, 8, 11.97, 12, 15.97, 16]) assert.ok(Math.abs(speed(b) - inside) < 1e-6, `same speed near beat ${b}`);
+  // 音符の点（smoothPts）では、小節をまたぐ区間が速い（直した前の状態）
+  const notes = [];
+  for (let m = 1; m < 5; m++) for (let b = 0; b < 4; b++) notes.push([starts[m] + b, abs[m] + 34 + b * 38]);
+  const sp = smoothPts(notes);
+  const noteSpeed = (b) => (xAtBeat(sp, b + 0.05) - xAtBeat(sp, b)) / 0.05;
+  assert.ok(noteSpeed(7.5) > noteSpeed(5.5) + 1, 'note points speed up across the bar line');
+});
+test('barPts with the flow keeps the current note in view and reaches the track ends', () => {
+  const lens = [2, 4, 4, 4, 4, 3];
+  const starts = lens.map((_, i) => lens.slice(0, i).reduce((a, b) => a + b, 0));
+  const abs = [];
+  let x = 0;
+  lens.forEach((len, i) => { abs[i] = x; x += 34 + len * 38; });
+  abs[lens.length] = x;
+  const p = barPts(starts, lens, abs, 0, lens.length);
+  const notes = [];
+  lens.forEach((len, m) => { for (let b = 0; b < len; b++) notes.push([starts[m] + b, abs[m] + 34 + b * 38]); });
+  const sp = smoothPts(notes);
+  const total = starts[5] + lens[5];
+  for (const [w, h] of [[852, 413], [342, 321], [808, 161]]) {
+    const k = flowScale(w, h, 116, 97);
+    const viewW = flowViewW(w, k, 97);
+    for (let beat = 0; beat < total; beat += 0.25) {
+      const off = flowOffset(xAtBeat(p, beat), viewW, 0, x);
+      const cur = xAtBeat(sp, beat) - off;
+      assert.ok(cur >= 0 && cur <= viewW, `cursor visible at beat ${beat}`);
+    }
+    assert.equal(flowOffset(xAtBeat(p, 0), viewW, 0, x), 0);
+    assert.equal(flowOffset(xAtBeat(p, total), viewW, 0, x), Math.max(0, x - viewW));
+  }
+  assert.deepEqual(barPts(starts, lens, abs, 2, 2), []);
+});
