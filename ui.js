@@ -254,6 +254,7 @@ const openPaywall = (source) => {
     ['練習の記録を端末どうしで同期', 'スマホとパソコンで、どこからでも続きから'],
     ['ステージ・初見チャレンジはそのまま', '無料で使える練習は、これまでどおりすべて使えます'],
   ].map(([b, s]) => `<li><span><b>${b}</b><small>${s}</small></span></li>`).join('');
+  if (typeof Analytics !== 'undefined') Analytics.track('paywall_view');
   $('payDlg').showModal();
 };
 
@@ -324,6 +325,10 @@ const initUI = () => {
     el.hidden = !el.hidden;
     $('moreBtn').setAttribute('aria-expanded', String(!el.hidden));
   });
+  $('songListenBtn').addEventListener('click', () => {
+    if (!songMixer) return;
+    if (songMixer.mx.playing) songMixer.mx.pause(); else songMixer.mx.play();
+  });
   // 画面の大きさや向きが変わったら、楽譜を流す位置を合わせ直す
   window.addEventListener('resize', () => { if (songRun && songRun.flow) placeCursor(songRun.focusBeat ?? 0, !songRun.flow.cur.hidden); });
   $('payBuy').addEventListener('click', () => {
@@ -339,6 +344,16 @@ const initUI = () => {
   });
   $('obDlg').addEventListener('cancel', () => finishOnboarding(false));
   showView('home');
+  // 試作（?trial=1）：トップに「まず1つ練習してみる」を出し、案内ダイアログは出さない。既定は現行のまま
+  if (new URLSearchParams(location.search).get('trial') === '1') {
+    document.body.classList.add('trial');
+    document.querySelectorAll('.trial-only').forEach((el) => { el.hidden = false; });
+    $('trialStart').addEventListener('click', () => {
+      if (needsOnboarding()) { settings.clef = 'treble'; settings.ext = 1; onSettingsChanged(); }
+      startFromHome(1);
+    });
+    return;
+  }
   if (needsOnboarding()) {
     obShow(0);
     $('obDlg').showModal();

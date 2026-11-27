@@ -527,6 +527,14 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
 }
 </style>
 <link rel="stylesheet" href="studio.css?v=5">
+<style>
+.trial { margin-bottom: 18px; border: 2px solid var(--accent, #6d5bff); }
+.trial h2 { margin: 0 0 4px; }
+.trial .trial-keys { margin-top: 12px; display: grid; gap: 4px; }
+.trial kbd, .trial-tip kbd { display: inline-block; min-width: 1.6em; padding: 1px 6px; margin: 0 2px; text-align: center; border: 1px solid currentColor; border-radius: 6px; font: inherit; font-weight: 700; }
+.trial-tip { margin: 8px 0; padding: 8px 12px; border-radius: 10px; background: #eeebfe; color: #2b2470; font-size: .92rem; }
+body:not(.trial) .trial-only { display: none !important; }
+</style>
 </head>
 <body data-view="home">
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -558,6 +566,16 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
     <div class="hello">
       <div><h1 id="helloTitle">今日も1曲ぶん、楽譜を読もう</h1><p id="helloSub">毎日すこしずつが、いちばんの近道です。</p></div>
       <button type="button" class="link" id="helpBtn">使い方とクリア条件</button>
+    </div>
+    <div id="trialCard" class="card trial trial-only" hidden>
+      <h2>まず1つ練習してみる</h2>
+      <p>ログイン・MIDIなしで、いますぐ初級ステージを1つ。パソコンのキーボードだけで弾けます（Chrome / Edge）。</p>
+      <button type="button" class="big" id="trialStart">まず1つ練習してみる</button>
+      <div class="trial-keys" aria-label="使用キーの案内">
+        <b>使うキー</b>
+        <span><kbd>A</kbd><kbd>W</kbd><kbd>S</kbd><kbd>E</kbd><kbd>D</kbd><kbd>F</kbd><kbd>T</kbd><kbd>G</kbd><kbd>Y</kbd><kbd>H</kbd><kbd>U</kbd><kbd>J</kbd><kbd>K</kbd>（ド〜ド）</span>
+        <small>白鍵は <kbd>A</kbd>=ド <kbd>S</kbd>=レ <kbd>D</kbd>=ミ <kbd>F</kbd>=ファ <kbd>G</kbd>=ソ <kbd>H</kbd>=ラ <kbd>J</kbd>=シ <kbd>K</kbd>=ド。音が高すぎ・低すぎるときは <kbd>Z</kbd> / <kbd>X</kbd> で動かします。</small>
+      </div>
     </div>
     <div class="home-grid">
       <div id="continueCard" class="continue"></div>
@@ -604,6 +622,7 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
       <button type="button" class="icon" id="playClose" aria-label="ホームへ戻る">✕</button>
       <div class="ttl"><b id="playTitle"></b><div class="prog" role="progressbar" aria-label="進み具合"><i id="playProg"></i></div></div>
       <div class="play-score" aria-live="off"><b id="playScore">0</b><small id="playSub">点</small></div>
+      <button type="button" class="icon listen-btn" id="songListenBtn" aria-label="元の曲を聴く" title="元の曲を聴く" hidden>♪</button>
       <button type="button" class="icon more-btn" id="moreBtn" aria-label="曲の情報・音量・操作のヒント" aria-expanded="false" aria-controls="playMore">ⓘ</button>
     </div>
     <div id="playMore" class="play-more" hidden>
@@ -623,6 +642,7 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
       </div>
       <div id="practiceBar" class="song-practice" hidden></div>
       <div id="assessBanner" hidden></div>
+      <div class="trial-tip trial-only" hidden><b>使うキー：</b>白鍵は <kbd>A</kbd>ド <kbd>S</kbd>レ <kbd>D</kbd>ミ <kbd>F</kbd>ファ <kbd>G</kbd>ソ <kbd>H</kbd>ラ <kbd>J</kbd>シ <kbd>K</kbd>ド。出た音符と同じ音のキーを押します。</div>
       <div id="stageInfo" class="stage-info" aria-live="polite"></div>
       <div id="judgeLayer" aria-hidden="true"></div>
       <div id="result" class="result" aria-live="polite" hidden></div>
@@ -907,17 +927,18 @@ dialog.sheet-dlg[open] { animation: sheetIn .28s ease-out; }
   </div>
 </dialog>
 
-<script src="songs.js?v=12"></script>
+<script src="analytics.js?v=2"></script>
+<script src="songs.js?v=19"></script>
 <script src="game.js?v=12"></script>
 <script src="timing.js?v=2"></script>
 <script src="assess.js?v=1"></script>
 <script src="flow.js?v=3"></script>
-<script src="song-mode.js?v=27"></script>
+<script src="song-mode.js?v=31"></script>
 <script src="record-sync.js?v=1"></script>
 <script src="billing.js?v=12"></script>
-<script src="ui.js?v=10"></script>
+<script src="ui.js?v=12"></script>
 <script src="studio.js?v=1"></script>
-<script src="mixer.js?v=3"></script>
+<script src="mixer.js?v=6"></script>
 <script src="demo.js?v=3"></script>
 <script src="piano.js?v=1"></script>
 <script>

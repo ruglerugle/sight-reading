@@ -196,14 +196,24 @@ const closeSongMixer = () => {
   if (songMixer) songMixer.mx.destroy();
   songMixer = null;
   $('songMixerBox').hidden = true;
+  $('songListenBtn').hidden = true;
+};
+// 練習の画面の ♪：元の曲（全曲）をすぐ聴く・止める。音源の切り替えや区間は ⓘ の中のプレーヤーで
+const showListenState = (playing) => {
+  const b = $('songListenBtn');
+  b.textContent = playing ? '❚❚' : '♪';
+  b.setAttribute('aria-label', playing ? '元の曲を止める' : '元の曲を聴く');
+  b.title = b.getAttribute('aria-label');
 };
 const syncSongMixer = (song) => {
   if (songMixer && songMixer.id === song.id) return;
   closeSongMixer();
   if (!song.stems) return;
   $('songMixerBox').hidden = false;
-  // ピアノのパートは元の曲にないので、「自分のパートを消す」は出さない（mine なし）
-  songMixer = { id: song.id, mx: Mixer.create($('songMixer'), { id: song.id, ...song.stems }) };
+  // 自分のパートは鍵盤（keys）。鍵盤のパートがない曲では「自分のパートを消す」は出ない
+  songMixer = { id: song.id, mx: Mixer.create($('songMixer'), { id: song.id, ...song.stems, mine: 'keys', onState: showListenState }) };
+  $('songListenBtn').hidden = false;
+  showListenState(false);
 };
 // 元の曲を止める（テンポの練習はクリックで弾くので、重ねない）
 const pauseSongMixer = () => { if (songMixer) songMixer.mx.pause(); };
@@ -742,6 +752,7 @@ const paceNoteOn = (midi) => {
     return;
   }
   if (r.pos >= r.events.length) {
+    trackSong('song_complete');
     renderSong();
     const stars = paceStars(r.misses, r.allowed);
     finishSongStep(stars, [
@@ -886,9 +897,20 @@ const tempoNoteOn = (midi) => {
   }
 };
 
+// 動画から来た人の件数：対象曲の冒頭8小節（最初の区切り）を弾いたときだけ（判定は analytics.js の isTargetIntro）。
+// 鍵盤を弾いたとき（開始）と最後の音まで着いたとき（完了）だけ呼ぶ。見本の再生からは呼ばない。1訪問に1回ずつ
+const trackSong = (event) => {
+  const r = songRun;
+  if (!r) return;
+  r.sent = r.sent || {};
+  if (r.sent[event]) return;
+  r.sent[event] = true;
+  if (typeof Analytics !== 'undefined') Analytics.trackSong(event, r.song, r.step, r.practice);
+};
 const songNoteOn = (midi) => {
   const r = songRun;
   if (!r || r.state !== 'play') return;
+  trackSong('song_start');
   if (r.step.kind === 'tempo' && !r.waitMode) tempoNoteOn(midi);
   else paceNoteOn(midi);
 };
